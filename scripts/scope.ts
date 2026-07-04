@@ -26,6 +26,7 @@ const ROOT = process.env.SCOPE_ROOT
   : fileURLToPath(new URL('..', import.meta.url));
 const mapPath = ROOT + 'module-map.json';
 const outPath = ROOT + '.task/allowed-files.json';
+const branchPath = ROOT + '.task/branch';
 
 type Module = { name: string; path: string; allowedImports: string[] };
 const modules = readModuleMap(mapPath).modules as Module[];
@@ -48,6 +49,33 @@ const matchedModules: string[] = [];
 function addModule(m: Module): void {
   allow.add(`${m.path}/**`);
   matchedModules.push(m.name);
+}
+
+// Branch slug: lowercase, non-alphanumerics collapse to '-', trim leading/
+// trailing '-', capped at 40 chars.
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/g, '');
+}
+
+// Prefer a spec file's first markdown heading (or first non-empty line) over
+// the raw args, so `.task/spec.md` yields a readable branch name instead of
+// "task-spec-md".
+function slugSourceFor(specArgs: string[]): string {
+  const first = specArgs[0];
+  if (first && !byName.has(first) && existsSync(first)) {
+    const text = readFileSync(first, 'utf8');
+    const lines = text.split('\n');
+    const heading = lines.find((l) => /^#+\s*\S/.test(l.trim()));
+    if (heading) return heading.replace(/^#+\s*/, '').trim();
+    const nonEmpty = lines.find((l) => l.trim().length > 0);
+    if (nonEmpty) return nonEmpty.trim();
+  }
+  return specArgs.join(' ');
 }
 
 for (const arg of args) {
@@ -88,6 +116,7 @@ for (const entry of allow) {
 if (!existsSync(ROOT + '.task')) mkdirSync(ROOT + '.task', { recursive: true });
 
 let spec = args.join(' ');
+let branch = `feature/${slugify(slugSourceFor(args))}`;
 if (addMode && existsSync(outPath)) {
   const prev = JSON.parse(readFileSync(outPath, 'utf8'));
   for (const entry of prev.allow ?? []) allow.add(entry);
@@ -95,6 +124,7 @@ if (addMode && existsSync(outPath)) {
     if (!matchedModules.includes(m)) matchedModules.push(m);
   }
   spec = `${prev.spec} + ${spec}`;
+  branch = prev.branch ?? branch;
 }
 
 const payload = {
@@ -102,8 +132,10 @@ const payload = {
   spec,
   matchedModules,
   allow: [...allow].sort(),
+  branch,
 };
 writeFileSync(outPath, JSON.stringify(payload, null, 2) + '\n');
+writeFileSync(branchPath, branch + '\n');
 rmSync(ROOT + '.task/.unscoped-ack', { force: true });
 
 console.log(`Wrote ${outPath}`);
@@ -112,4 +144,4 @@ for (const f of fallbacks) {
   console.log(`  ⚠ fallback (verify manually): ${f}`);
 }
 
-appendRun({ kind: 'scope-set', add: addMode, args, matchedModules, fallbacks });
+appendRun({ kind: 'scope-set', add: addMode, args, matchedModules, fallbacks, branch });

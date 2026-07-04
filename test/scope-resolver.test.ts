@@ -104,3 +104,48 @@ describe('scope resets the unscoped-ack marker', () => {
     expect(existsSync(ackFile)).toBe(false);
   });
 });
+
+describe('scope derives a branch name', () => {
+  it('slugs a module-name arg into feature/<slug> and writes .task/branch', () => {
+    expect(scope('_example').status).toBe(0);
+    const payload = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(payload.branch).toBe('feature/example');
+    const branchFile = join(root, '.task/branch');
+    expect(readFileSync(branchFile, 'utf8')).toBe(`${payload.branch}\n`);
+  });
+
+  it('derives the slug from a spec file heading, not the file path', () => {
+    writeFileSync(join(root, 'spec.md'), '# Add Widget Support\n\ntouches _example module\n');
+    expect(scope('spec.md').status).toBe(0);
+    const payload = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(payload.branch).toBe('feature/add-widget-support');
+  });
+
+  it('falls back to the first non-empty line when a spec file has no heading', () => {
+    writeFileSync(join(root, 'spec.md'), '\n  Fix login bug for real users  \nmore detail\n');
+    expect(scope('spec.md').status).toBe(0);
+    const payload = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(payload.branch).toBe('feature/fix-login-bug-for-real-users');
+  });
+
+  it('sanitizes punctuation/whitespace and truncates the slug to 40 chars', () => {
+    const longArg = 'Add Support For The Really Long Feature Name!!!';
+    expect(scope(longArg).status).toBe(0);
+    const payload = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(payload.branch.startsWith('feature/')).toBe(true);
+    const slug = payload.branch.slice('feature/'.length);
+    expect(slug.length).toBeLessThanOrEqual(40);
+    expect(slug).not.toMatch(/^-|-$/);
+    expect(slug).toMatch(/^[a-z0-9-]+$/);
+  });
+
+  it('--add keeps the existing branch instead of regenerating it', () => {
+    expect(scope('_example').status).toBe(0);
+    const first = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(scope('zz/nonexistent.ts', '--add').status).toBe(0);
+    const second = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(second.branch).toBe(first.branch);
+    const branchFile = join(root, '.task/branch');
+    expect(readFileSync(branchFile, 'utf8')).toBe(`${first.branch}\n`);
+  });
+});

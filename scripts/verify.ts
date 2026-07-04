@@ -106,7 +106,11 @@ for (const step of selected) {
   let ok: boolean;
   let output = '';
   if (agent) {
-    const res = spawnSync(step.cmd, step.args, { encoding: 'utf8', shell: false });
+    const res = spawnSync(step.cmd, step.args, {
+      encoding: 'utf8',
+      shell: false,
+      maxBuffer: 64 * 1024 * 1024,
+    });
     ok = res.status === 0;
     output = (res.stdout ?? '') + (res.stderr ?? '');
   } else {

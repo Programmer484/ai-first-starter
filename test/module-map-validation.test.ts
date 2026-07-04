@@ -79,10 +79,10 @@ describe('module-map.json shape validation', () => {
 
   it('an unknown extra key passes (exit 0) with a warning naming the key', () => {
     const { status, out } = runWith((map) => {
-      map.modules[0]!.gates = { coverage: 80 };
+      map.modules[0]!.zz_unknown_key = { coverage: 80 };
     });
     expect(status).toBe(0);
-    expect(out).toContain('gates');
+    expect(out).toContain('zz_unknown_key');
   });
 
   it('the valid map passes validation', () => {

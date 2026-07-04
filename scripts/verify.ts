@@ -25,6 +25,7 @@ const steps: Step[] = [
 
 const argv = process.argv.slice(2);
 const agent = argv.includes('--agent');
+const baseline = argv.includes('--baseline');
 const only = argv.find((a) => !a.startsWith('--'));
 const selected = only ? steps.filter((s) => s.name === only) : steps;
 if (selected.length === 0) {
@@ -145,6 +146,11 @@ if (failed.length === 0) {
   console.log(`verify: PASS (${(durationMs / 1000).toFixed(1)}s)`);
 } else {
   console.log(`verify: FAIL [${failed.join(', ')}] (${(durationMs / 1000).toFixed(1)}s)`);
+  if (baseline) {
+    spawnSync('node', ['scripts/baseline.ts', ...failed], { stdio: 'inherit', shell: false });
+  } else {
+    console.log(`not sure it's your change? pnpm verify --baseline`);
+  }
 }
 
 if (agent) {

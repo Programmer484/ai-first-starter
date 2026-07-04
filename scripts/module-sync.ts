@@ -22,7 +22,8 @@ const map = JSON.parse(readFileSync(MAP_PATH, 'utf8'));
 // Validate the SHAPE of module-map.json before anything derives from it, so a
 // hand-edit typo (e.g. `allowedImport`) fails here with a named, actionable
 // error instead of crashing later inside eslint.config.js.
-const KNOWN_KEYS = new Set(['name', 'path', 'description', 'allowedImports']);
+const KNOWN_KEYS = new Set(['name', 'path', 'description', 'allowedImports', 'gates']);
+const GATE_PROFILES = ['full', 'polish'];
 const REQUIRED_KEYS = ['name', 'path', 'description', 'allowedImports'];
 const shapeErrors: string[] = [];
 const warnings: string[] = [];
@@ -86,6 +87,13 @@ for (let i = 0; i < map.modules.length; i++) {
     shapeErrors.push(
       `Module ${label} has an empty or non-string \`description\`.\n` +
         `  Fix: set \`description\` to a non-empty string.`,
+    );
+  }
+
+  if ('gates' in m && !GATE_PROFILES.includes(m.gates)) {
+    shapeErrors.push(
+      `Module ${label} has invalid \`gates\` ${JSON.stringify(m.gates)}.\n` +
+        `  Fix: \`gates\` must be one of full | polish (or omit the key for full).`,
     );
   }
 

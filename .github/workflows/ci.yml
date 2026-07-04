@@ -22,6 +22,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Ratchet baseline: make origin/main resolvable in the shallow checkout.
+      # `|| true`: on main itself there may be nothing new to fetch — the
+      # ratchet step skip-passes without a baseline ref.
+      - name: Fetch ratchet baseline
+        run: git fetch origin main --depth=1 || true
+
       # Same gate as local `pnpm verify` — one exit code.
       - name: Verify
         run: pnpm verify

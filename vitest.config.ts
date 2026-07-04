@@ -17,10 +17,13 @@ export default defineConfig({
         ...polishCoverageExcludes(),
       ],
       // Coverage floor on src/modules/**. verify fails below it.
-      // ponytail: start at 70% lines, ratchet up as modules mature — raise
-      // the number here, never lower it to make a change pass.
+      // ponytail: start at 80, ratchet up as modules mature — raise the
+      // numbers here, never lower them to make a change pass (the ratchet
+      // step enforces this for `lines` against origin/main).
       thresholds: {
-        lines: 70,
+        lines: 80,
+        functions: 80,
+        branches: 80,
       },
     },
   },

@@ -3,9 +3,14 @@
 // state is touched, so these are safe under parallel workers.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+// Derive the repo's current floor so these probes survive future ratcheting.
+const config = readFileSync(ROOT + 'vitest.config.ts', 'utf8');
+const current = Number(/thresholds[\s\S]*?lines:\s*(\d+)/.exec(config)![1]);
 
 function ratchet(env: Record<string, string>) {
   const res = spawnSync('node', ['scripts/ratchet.ts'], {
@@ -20,22 +25,22 @@ const base = (lines: number) => `export default { coverage: { thresholds: { line
 
 describe('rule 7: coverage floor only ratchets upward', () => {
   it('fails when the floor is lowered, naming both numbers and the rule', () => {
-    const { status, out } = ratchet({ RATCHET_BASE_CONTENT: base(80) });
+    const { status, out } = ratchet({ RATCHET_BASE_CONTENT: base(current + 10) });
     expect(status).toBe(1);
     expect(out).toContain('lowered');
-    expect(out).toContain('80');
-    expect(out).toContain('70');
+    expect(out).toContain(String(current + 10));
+    expect(out).toContain(String(current));
     expect(out).toContain('rule 7');
   });
 
   it('passes when the floor is unchanged', () => {
-    const { status, out } = ratchet({ RATCHET_BASE_CONTENT: base(70) });
+    const { status, out } = ratchet({ RATCHET_BASE_CONTENT: base(current) });
     expect(status).toBe(0);
     expect(out).toContain('ratchet: OK');
   });
 
   it('passes when the floor was raised', () => {
-    const { status } = ratchet({ RATCHET_BASE_CONTENT: base(60) });
+    const { status } = ratchet({ RATCHET_BASE_CONTENT: base(current - 10) });
     expect(status).toBe(0);
   });
 

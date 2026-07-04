@@ -1,0 +1,11 @@
+{
+  "$schema": "./module-map.schema.json",
+  "modules": [
+    {
+      "name": "_example",
+      "path": "src/modules/_example",
+      "description": "Reference module. Copy its shape when creating new modules.",
+      "allowedImports": []
+    }
+  ]
+}

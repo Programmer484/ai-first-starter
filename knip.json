@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "scripts/*.ts",
+    ".claude/hooks/*.ts",
+    "src/modules/*/index.ts",
+    "src/modules/*/__tests__/**/*.ts"
+  ],
+  "project": ["src/**/*.ts", "scripts/**/*.ts", ".claude/hooks/**/*.ts"],
+  "ignoreDependencies": ["vite"]
+}

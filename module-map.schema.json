@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "module-map",
+  "description": "Single source of truth for module architecture. Drives ESLint boundaries, the scope resolver, and module docs.",
+  "type": "object",
+  "required": ["modules"],
+  "additionalProperties": false,
+  "properties": {
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "description", "allowedImports"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_-]*$",
+            "description": "Unique module id. Matches the folder under src/modules/."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repo-relative path to the module folder."
+          },
+          "description": {
+            "type": "string",
+            "description": "One line: what this module is responsible for."
+          },
+          "allowedImports": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Names of other modules this module may import (via their index.ts). Empty = leaf module."
+          }
+        }
+      }
+    }
+  }
+}

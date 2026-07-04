@@ -17,8 +17,8 @@ coverage floor is enforced by `pnpm verify`.
 1. **The public surface first.** Every export from `index.ts` gets at least one
    test. This is the contract other modules depend on.
 2. **Branches and edge cases.** Empty/blank input, boundaries, error paths.
-   Coverage floor is 80% (lines, functions, branches) — write the branch
-   test, don't chase the number. (Polish-lane modules — `"gates": "polish"`
+   Coverage floor is 80% (lines, functions, branches, statements) — write the
+   branch test, don't chase the number. (Polish-lane modules — `"gates": "polish"`
    in `module-map.json` — are excluded from the floor only; every other
    check still runs.)
 3. **Internal units** only when the logic is non-trivial and hard to reach

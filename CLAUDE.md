@@ -37,7 +37,9 @@ shell layer), the rule says so. Rules that cannot be checked live under
    — _Enforced by:_ `scope-guard` (PreToolUse hook). Deterministic for
    Edit/Write/MultiEdit/NotebookEdit: out-of-scope targets are blocked.
    Heuristic for Bash: quoted segments are stripped, then write-indicator +
-   out-of-scope path detection — when unsure, it allows. With no scope
+   out-of-scope path detection (not bypassed by `pnpm exec`) — when unsure,
+   it allows, except Bash writes to `.task/allowed-files.json` and
+   `edit-log.jsonl`, which are always blocked. With no scope
    active, edits under `src/` get a one-time nudge (`.task/.unscoped-ack`
    marker). Repeat blocks on the same path escalate with explicit
    don't-work-around wording. Every scope set and every block is logged to
@@ -51,22 +53,26 @@ shell layer), the rule says so. Rules that cannot be checked live under
    pre-existing or introduced. `pnpm pr --no-verify` skips the pre-PR run,
    but the skip is logged to `edit-log.jsonl`.
    — _Enforced by:_ `verify` itself — pre-commit (lefthook) and CI run the
-   identical script, so local green and CI green cannot drift.
+   identical script, so local green and CI green cannot drift. (`pnpm verify
+--fast` is the affected-only inner loop; the full gate still runs in
+   pre-commit and CI.)
 
-7. **Meet the coverage floor.** 80% lines, functions, and branches on
-   `src/modules/**`, ratcheting upward. Never lower it to make a change
-   pass. Polish lane: a module may declare `"gates": "polish"` in
+7. **Meet the coverage floor.** 80% lines, functions, branches, and
+   statements on `src/modules/**`, ratcheting upward. Never lower it to make
+   a change pass. Polish lane: a module may declare `"gates": "polish"` in
    `module-map.json` (`pnpm new-module <name> --gates polish`) to opt out of
    the coverage floor ONLY — lint, boundaries, typecheck, knip, and
    scope-guard all still apply. It is for feel/render/UI-polish modules
    where test-first has no meaningful spec; logic modules stay `full`.
    — _Enforced by:_ coverage `thresholds` in `vitest.config.ts` (`test`
-   step); `ratchet` (verify step) fails any lowering of the `lines` floor
-   against origin/main (skip-passes when no baseline ref resolves;
-   `RATCHET_BASE` / `RATCHET_BASE_CONTENT` override the baseline). Polish modules get
-   per-glob zero thresholds generated from the map (`scripts/gates.ts`) —
-   coverage is still measured and reported, only the floor is zeroed — and
-   the `gates` value is validated by `module-sync`.
+   step); `ratchet` (verify step) fails any lowering of the four floors
+   against origin/main (with `RATCHET_REQUIRE=1` CI fails closed rather than
+   skip-passing when no baseline ref resolves; `RATCHET_BASE` /
+   `RATCHET_BASE_CONTENT` override the baseline). A CI-only Stryker mutation
+   gate (`pnpm mutation`, break 60) catches coverage met by assertion-free
+   tests. Polish modules get per-glob zero thresholds generated from the map
+   (`scripts/gates.ts`) — coverage is still measured and reported, only the
+   floor is zeroed — and the `gates` value is validated by `module-sync`.
 
 8. **No dead code.** Remove unused exports and files rather than keeping
    them "for later".

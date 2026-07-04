@@ -16,4 +16,7 @@ pre-commit:
         than your working tree. Stage the changes (git add) or stash them
         (git stash push --keep-index), then commit.'; exit 1; fi
     2_verify:
+      # Full gate stays here — this is the ship gate. `pnpm verify --fast`
+      # is the agent inner loop (changed-files lint/format, no coverage,
+      # ratchet/knip skipped); never substitute it for the pre-commit run.
       run: pnpm verify

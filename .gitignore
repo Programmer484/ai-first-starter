@@ -14,3 +14,7 @@ edit-log.jsonl
 
 # Latest verify failure snapshot (verify --agent).
 .task/last-verify.json
+
+# Stryker mutation-test sandbox (pnpm mutation).
+.stryker-tmp
+reports

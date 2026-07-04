@@ -8,3 +8,4 @@ coverage
 
 # Per-project run ledger.
 edit-log.jsonl
+.task/last-verify.json

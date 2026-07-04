@@ -12,7 +12,11 @@ Feature request: **$ARGUMENTS**
 
 - Read `module-map.json` to see the modules and their allowed imports.
 - Decide which module(s) this change touches. If it needs a new module, run
-  `pnpm new-module <name> --desc "..." [--imports a,b]` first.
+  `pnpm new-module <name> --desc "..." [--imports a,b]` first. For a
+  feel/render/UI-polish module with no meaningful test-first spec, add
+  `--gates polish` — that exempts it from the coverage floor ONLY (lint,
+  boundaries, typecheck, knip, scope-guard still apply). Logic modules stay
+  `full`.
 - Lock the scope so the scope-guard hook enforces it:
 
   ```bash
@@ -20,8 +24,9 @@ Feature request: **$ARGUMENTS**
   ```
 
   This writes `.task/allowed-files.json`. From now, edits outside that set are
-  blocked by the PreToolUse hook — that is intended. Widen scope only by
-  re-running `pnpm scope`, never by editing the JSON by hand.
+  blocked by the PreToolUse hook — that is intended. Widen scope with
+  `pnpm scope --add <module|path>` (a plain re-run replaces the scope), never
+  by editing the JSON by hand.
 
 ## 2. Implement
 
@@ -35,12 +40,16 @@ Feature request: **$ARGUMENTS**
 ## 3. Verify
 
 ```bash
-pnpm verify
+pnpm verify --agent
 ```
 
-One exit code covers format, lint (incl. boundaries), typecheck, tests +
-coverage floor, and dead-code. Fix until green. Do not weaken thresholds to
-pass.
+One exit code covers module-sync, format, lint (incl. boundaries), typecheck,
+tests + coverage floor, ratchet, and dead-code. `--agent` prints a bounded,
+file-grouped failure summary and writes a machine-readable snapshot to
+`.task/last-verify.json` — use it as your iteration loop and fix until green.
+Do not weaken thresholds to pass. If a failure looks unrelated to your change,
+`pnpm verify --baseline` classifies each failing step as pre-existing (also
+fails at HEAD) or introduced.
 
 ## 4. Ship
 

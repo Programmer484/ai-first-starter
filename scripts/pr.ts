@@ -33,6 +33,9 @@ if (!skipVerify) {
     console.error('verify failed — not opening a PR.');
     process.exit(1);
   }
+} else {
+  appendRun({ kind: 'pr-no-verify', title });
+  console.warn('verify skipped (--no-verify) — skip logged to edit-log.jsonl');
 }
 
 const defaultBranch =

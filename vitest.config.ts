@@ -3,8 +3,11 @@ import { polishCoverageThresholds } from './scripts/gates.ts';
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.{test,spec}.ts', 'src/**/__tests__/**/*.ts', 'test/**/*.test.ts'],
-    // Enforcement probes spawn eslint/knip subprocesses; give them headroom.
+    // Product tests only. The framework's self-tests (test/**) are a separate
+    // suite — `pnpm test:framework` (vitest.framework.config.ts) — because
+    // they plant probes in the live repo and spawn nested verify runs, which
+    // races feature-work verify. CI runs them when framework files change.
+    include: ['src/**/*.{test,spec}.ts', 'src/**/__tests__/**/*.ts'],
     testTimeout: 30_000,
     coverage: {
       provider: 'v8',

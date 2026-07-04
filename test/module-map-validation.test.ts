@@ -43,6 +43,36 @@ describe('module-map.json shape validation', () => {
     expect(out).toContain('src/modules/_example');
   });
 
+  it('a non-array `allowedExternals` fails, naming the field', () => {
+    const { status, out } = runModuleSyncWith((map) => {
+      map.modules[0]!.allowedExternals = 'pixi.js';
+    });
+    expect(status).not.toBe(0);
+    expect(out).toContain('allowedExternals');
+  });
+
+  it('a non-string entry in `allowedExternals` fails, naming the field', () => {
+    const { status, out } = runModuleSyncWith((map) => {
+      map.modules[0]!.allowedExternals = [123];
+    });
+    expect(status).not.toBe(0);
+    expect(out).toContain('allowedExternals');
+  });
+
+  it('an empty `allowedExternals` array (pure module) passes', () => {
+    const { status } = runModuleSyncWith((map) => {
+      map.modules[0]!.allowedExternals = [];
+    });
+    expect(status).toBe(0);
+  });
+
+  it('a valid `allowedExternals` allowlist passes', () => {
+    const { status } = runModuleSyncWith((map) => {
+      map.modules[0]!.allowedExternals = ['pixi.js'];
+    });
+    expect(status).toBe(0);
+  });
+
   it('an unknown extra key passes (exit 0) with a warning naming the key', () => {
     const { status, out } = runModuleSyncWith((map) => {
       map.modules[0]!.zz_unknown_key = { coverage: 80 };

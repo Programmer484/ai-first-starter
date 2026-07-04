@@ -63,7 +63,9 @@ describe('verify default mode is unchanged', () => {
     do {
       while (probesPresent() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 500));
       ({ status, out } = verify(['format']));
-    } while (status !== 0 && probesPresent() && Date.now() < deadline);
+      // A probe can vanish between the failing run and the probesPresent()
+      // check — the failure output naming a zz_ file is the reliable signal.
+    } while (status !== 0 && (probesPresent() || out.includes('zz_')) && Date.now() < deadline);
     expect(status).toBe(0);
     expect(out).toContain('verify: PASS');
     expect(out).not.toContain('(general)');

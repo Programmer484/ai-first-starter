@@ -13,7 +13,7 @@
 //   pnpm scope _example                 # allow edits within the _example module
 //   pnpm scope .task/spec.md            # scan a spec file for module names
 //   pnpm scope src/modules/foo/index.ts # literal path (fallback)
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { appendRun } from './edit-log.ts';
 
@@ -25,13 +25,17 @@ type Module = { name: string; path: string; allowedImports: string[] };
 const modules: Module[] = JSON.parse(readFileSync(mapPath, 'utf8')).modules;
 const byName = new Map(modules.map((m) => [m.name, m]));
 
-const args = process.argv.slice(2);
+const rawArgs = process.argv.slice(2);
+const addMode = rawArgs.includes('--add');
+const args = rawArgs.filter((a) => !a.startsWith('--'));
 if (args.length === 0) {
-  console.error('Usage: scope <module-name | spec-file | path> ...');
+  console.error('Usage: scope <module-name | spec-file | path> ... [--add]');
   process.exit(2);
 }
 
-const allow = new Set<string>(['.task/**', 'edit-log.jsonl']);
+const SEEDED = ['.task/**', 'edit-log.jsonl'];
+const CATCH_ALLS = new Set(['**', '*', 'src/**', 'src/*']);
+const allow = new Set<string>(SEEDED);
 const fallbacks: string[] = [];
 const matchedModules: string[] = [];
 
@@ -63,15 +67,35 @@ for (const arg of args) {
   fallbacks.push(arg);
 }
 
+for (const entry of allow) {
+  if (CATCH_ALLS.has(entry)) {
+    console.error(
+      `refusing catch-all scope "${entry}"; name modules or paths: pnpm scope <module|path> [--add]`,
+    );
+    process.exit(2);
+  }
+}
+
 if (!existsSync(ROOT + '.task')) mkdirSync(ROOT + '.task', { recursive: true });
+
+let spec = args.join(' ');
+if (addMode && existsSync(outPath)) {
+  const prev = JSON.parse(readFileSync(outPath, 'utf8'));
+  for (const entry of prev.allow ?? []) allow.add(entry);
+  for (const m of prev.matchedModules ?? []) {
+    if (!matchedModules.includes(m)) matchedModules.push(m);
+  }
+  spec = `${prev.spec} + ${spec}`;
+}
 
 const payload = {
   generatedAt: new Date().toISOString(),
-  spec: args.join(' '),
+  spec,
   matchedModules,
   allow: [...allow].sort(),
 };
 writeFileSync(outPath, JSON.stringify(payload, null, 2) + '\n');
+rmSync(ROOT + '.task/.unscoped-ack', { force: true });
 
 console.log(`Wrote ${outPath}`);
 console.log(`  matched modules: ${matchedModules.length ? matchedModules.join(', ') : '(none)'}`);
@@ -79,4 +103,4 @@ for (const f of fallbacks) {
   console.log(`  ⚠ fallback (verify manually): ${f}`);
 }
 
-appendRun({ kind: 'scope', spec: args.join(' '), matchedModules, fallbacks });
+appendRun({ kind: 'scope-set', add: addMode, args, matchedModules, fallbacks });

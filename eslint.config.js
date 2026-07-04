@@ -8,7 +8,9 @@ import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 import { readModuleMap } from './scripts/module-map.ts';
 
-const moduleMap = readModuleMap();
+// useEnv: MODULE_MAP lets tests lint against a doctored map without mutating
+// the real file (the same opt-in seam module-sync uses).
+const moduleMap = readModuleMap(undefined, true);
 
 // module A may import module B  <=>  B is in A.allowedImports.
 // (A module may always import itself; boundaries skips same-element imports.)

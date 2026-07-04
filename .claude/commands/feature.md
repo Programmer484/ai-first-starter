@@ -17,31 +17,44 @@ Keep every message that reaches the user in plain language.
 You are the **orchestrator** for a prompt-to-PR pipeline. The person running
 this is NON-TECHNICAL. They speak in outcomes ("daisies that bloom in
 spring"), not code. Your job is to run the six stages below in order,
-dispatching subagents via the **Agent tool** at the model tier named for each
-stage. Never expose Git, branches, diffs, scope globs, or module maps to the
+dispatching subagents via the **Agent tool** at the model assigned in the
+table below. Never expose Git, branches, diffs, scope globs, or module maps to the
 user. Do not skip stages.
 
 Feature request: **$ARGUMENTS**
 
+## Model assignment (edit this table to experiment)
+
+Each spawning stage below reads its model from this table — change a row here
+and nothing else. Rationale: intake is judgment-dense and poisons everything
+downstream if wrong, so the orchestrator does it inline (no spawn); coding is
+where model quality pays off most; the plain-English summary is the only
+artifact the non-technical stakeholder reads, so don't starve it.
+
+| Stage         | Who runs it            | Model    |
+| ------------- | ---------------------- | -------- |
+| 1 Intake/spec | orchestrator, inline   | (self)   |
+| 2 Scope       | script (`pnpm scope`)  | —        |
+| 3 Code        | spawned subagent       | `opus`   |
+| 4 Verify loop | orchestrator + Stage 3 | (self)   |
+| 5 Summarize   | spawned subagent       | `sonnet` |
+| 6 Ship        | script (`pnpm pr`)     | —        |
+
 ---
 
-## Stage 1 — Intake (model: `haiku`)
+## Stage 1 — Intake (orchestrator, inline — no subagent)
 
-Goal: turn the request into `.task/spec.md`.
-
-**Design note (why the orchestrator asks, not the subagent):** in Claude Code
-only the top-level assistant can use `AskUserQuestion` — a spawned subagent
-cannot talk to the user. So do the interactive part YOURSELF, then hand the
-answers to the subagent.
+Goal: turn the request into `.task/spec.md`. Do this YOURSELF: only the
+top-level assistant can use `AskUserQuestion` (a spawned subagent cannot talk
+to the user), and a bad spec poisons every later stage — this is the wrong
+place to delegate down.
 
 1. Read `$ARGUMENTS`. Judge whether it is genuinely ambiguous (missing a
    detail you cannot reasonably assume). If it is clear, skip to step 3.
 2. If ambiguous, ask the user **at most 1–3** questions with `AskUserQuestion`.
    Plain language only — no jargon, no file names, no "module", no "endpoint".
    Example: "Should the daisies appear everywhere, or only on the home page?"
-3. Spawn a `haiku` subagent with the Agent tool. Give it the original request
-   plus any answers, and tell it to write `.task/spec.md` with exactly these
-   sections:
+3. Write `.task/spec.md` with exactly these sections:
 
    ```markdown
    # <short feature title>
@@ -59,9 +72,9 @@ answers to the subagent.
    - <things this change deliberately does NOT do>
    ```
 
-   The subagent writes only the spec file and reports the title back. If it has
-   no user answers to work from and the request is clear, it fills the spec
-   from the request alone.
+   Keep it to those three sections — the spec is the coding stage's contract,
+   not an essay. Fold the user's answers in; if there were none, write it from
+   the request alone.
 
 ---
 
@@ -91,9 +104,10 @@ touch) and a `feature/<slug>` branch name in `.task/branch`.
 
 ---
 
-## Stage 3 — Code, tests first (model: `opus`)
+## Stage 3 — Code, tests first (model: see table)
 
-Spawn an `opus` subagent with the Agent tool. Instruct it explicitly:
+Spawn a subagent with the Agent tool at the Stage-3 model from the table
+above. Instruct it explicitly:
 
 - Read `.task/spec.md`. Write **failing tests first** that encode "Done when",
   then implement until they pass. Tests live under the module's `__tests__/`
@@ -118,7 +132,7 @@ This prints a bounded, file-grouped failure summary and writes
 `.task/last-verify.json`.
 
 - **Green?** Move to Stage 5.
-- **Red?** Send the bounded summary back to the Stage 3 `opus` subagent with
+- **Red?** Send the bounded summary back to the Stage 3 coding subagent with
   `SendMessage` (this preserves its context — do not spawn a fresh one) and let
   it fix, then re-run `pnpm verify --agent`.
 - **Cap: 3 attempts.** If it is still red after the third verify, **STOP**.
@@ -130,9 +144,11 @@ Never weaken thresholds or coverage floors to force a pass.
 
 ---
 
-## Stage 5 — Summarize (model: `haiku`)
+## Stage 5 — Summarize (model: see table)
 
-Spawn a `haiku` subagent. Tell it to:
+Spawn a subagent at the Stage-5 model from the table above. The plain-English
+summary is the only artifact the non-technical co-founder reads — quality
+matters here. Tell it to:
 
 1. Write `.task/pr-body.md` with exactly two sections:
 

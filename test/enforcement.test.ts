@@ -7,9 +7,10 @@
 // the config is generated from the map), rule 6 (verify IS the check), and
 // rule 7 (coverage floor — probing it means running vitest inside vitest;
 // the threshold config in vitest.config.ts is exercised on every verify run).
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -91,20 +92,30 @@ describe('rule 4: modules are created via new-module (map ↔ folders in sync)',
 });
 
 describe('rule 5: scope-guard blocks and logs out-of-scope edits', () => {
-  const taskFile = join(ROOT, '.task/allowed-files.json');
-  const logFile = join(ROOT, 'edit-log.jsonl');
+  // The hook resolves .task/ and edit-log.jsonl from the payload cwd, so a
+  // scratch dir exercises the same code paths without touching the real
+  // ledger — parallel test workers legitimately append to the real one.
+  let scratch: string;
+  let taskFile: string;
+  let logFile: string;
+
+  beforeEach(() => {
+    scratch = mkdtempSync(join(tmpdir(), 'zz-rule5-'));
+    mkdirSync(join(scratch, '.task'), { recursive: true });
+    taskFile = join(scratch, '.task/allowed-files.json');
+    logFile = join(scratch, 'edit-log.jsonl');
+  });
 
   afterEach(() => {
-    rmSync(taskFile, { force: true });
-    rmSync(logFile, { force: true });
+    rmSync(scratch, { recursive: true, force: true });
   });
 
   it('blocks with exit 2, explains scope, and appends to edit-log.jsonl', () => {
     writeFileSync(taskFile, JSON.stringify({ allow: ['src/modules/_example/**'] }, null, 2) + '\n');
     const payload = JSON.stringify({
       tool_name: 'Edit',
-      tool_input: { file_path: join(ROOT, 'scripts/verify.ts') },
-      cwd: ROOT.replace(/\/$/, ''),
+      tool_input: { file_path: join(scratch, 'scripts/verify.ts') },
+      cwd: scratch,
     });
     const { status, out } = run('node', ['.claude/hooks/scope-guard.ts'], payload);
     expect(status).toBe(2);
@@ -120,8 +131,8 @@ describe('rule 5: scope-guard blocks and logs out-of-scope edits', () => {
     writeFileSync(taskFile, JSON.stringify({ allow: ['src/modules/_example/**'] }, null, 2) + '\n');
     const payload = JSON.stringify({
       tool_name: 'Edit',
-      tool_input: { file_path: join(ROOT, 'src/modules/_example/index.ts') },
-      cwd: ROOT.replace(/\/$/, ''),
+      tool_input: { file_path: join(scratch, 'src/modules/_example/index.ts') },
+      cwd: scratch,
     });
     const { status } = run('node', ['.claude/hooks/scope-guard.ts'], payload);
     expect(status).toBe(0);

@@ -19,22 +19,29 @@ pnpm verify          # lint + typecheck + test + boundaries + coverage + dead-co
 - **Modules have a public surface.** Other modules import a module only through
   its `index.ts`; `internal/` is private and deep imports fail lint.
 - **Tasks are scoped.** `pnpm scope <module>` writes `.task/allowed-files.json`;
-  a Claude Code hook blocks edits outside it.
+  a Claude Code hook blocks file-tool edits outside it and heuristically
+  catches shell writes — a guardrail against accidents, not adversaries.
 - **One gate.** `pnpm verify` runs locally and in CI and reports the same result.
 
 ## Common commands
 
-| Command                     | What it does                                      |
-| --------------------------- | ------------------------------------------------- |
-| `pnpm new-module <name>`    | Scaffold + register a module in `module-map.json` |
-| `pnpm scope <module\|spec>` | Write the allowed-files scope for a task          |
-| `pnpm verify`               | Full quality gate, one exit code                  |
-| `pnpm pr "<title>"`         | Branch, commit, push, open a draft PR             |
-| `pnpm init:project <name>`  | Re-instantiate this template for a new project    |
+| Command                           | What it does                                                        |
+| --------------------------------- | ------------------------------------------------------------------- |
+| `pnpm new-module <name>`          | Scaffold + register a module (`--gates polish` skips coverage only) |
+| `pnpm scope <module\|spec>`       | Write the allowed-files scope for a task (replaces any prior scope) |
+| `pnpm scope --add <module\|path>` | Widen the current scope                                             |
+| `pnpm verify`                     | Full quality gate, one exit code                                    |
+| `pnpm verify --agent`             | Same gate, bounded failure summary + `.task/last-verify.json`       |
+| `pnpm verify --baseline`          | On failure, classify each step as pre-existing vs introduced        |
+| `pnpm pr "<title>"`               | Branch, commit, push, open a draft PR (runs verify first)           |
+| `pnpm edit-log`                   | Print the last 20 run-ledger records from `edit-log.jsonl`          |
+| `pnpm init:project <name>`        | Re-instantiate this template for a new project                      |
 
 ## Agent pipeline
 
 Run `/feature <description>` in Claude Code, or follow the pipeline in
-`.claude/commands/feature.md` manually: **scope → implement → verify → PR**.
+`.claude/commands/feature.md` manually: **scope → implement →
+verify --agent → PR**. Agents should iterate with `pnpm verify --agent` —
+same checks, bounded file-grouped output, machine-readable snapshot.
 
 See `CLAUDE.md` for the rules and `TESTING.md` for the test playbook.

@@ -11,5 +11,11 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     // Probes spawn eslint/knip/verify subprocesses; give them headroom.
     testTimeout: 30_000,
+    // One file at a time. These tests share one mutable resource — the live
+    // repo (probe folders, module-map.json, edit-log.jsonl) — so parallel
+    // workers are a standing race. Serial execution makes "only one test
+    // touches the repo at a time" a guarantee instead of a hope; this suite
+    // runs rarely (framework changes only), so the wall-clock cost is fine.
+    fileParallelism: false,
   },
 });

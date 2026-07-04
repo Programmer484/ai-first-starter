@@ -44,6 +44,20 @@ describe('rule 7: coverage floor only ratchets upward', () => {
     expect(status).toBe(0);
   });
 
+  it('fails when a non-lines floor is lowered or removed, naming the key', () => {
+    const withBranches = `export default { coverage: { thresholds: { lines: ${current}, branches: ${current + 10} } } };`;
+    const { status, out } = ratchet({ RATCHET_BASE_CONTENT: withBranches });
+    expect(status).toBe(1);
+    expect(out).toContain('branches');
+    expect(out).toContain(String(current + 10));
+  });
+
+  it('fails under RATCHET_REQUIRE when no baseline ref resolves', () => {
+    const { status, out } = ratchet({ RATCHET_BASE: 'no-such-ref-zz', RATCHET_REQUIRE: '1' });
+    expect(status).toBe(1);
+    expect(out).toContain('git fetch origin main');
+  });
+
   it('skip-passes when no baseline ref resolves', () => {
     const { status, out } = ratchet({ RATCHET_BASE: 'no-such-ref-zz' });
     expect(status).toBe(0);

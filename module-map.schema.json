@@ -34,6 +34,11 @@
             "type": "array",
             "items": { "type": "string" },
             "description": "Names of other modules this module may import (via their index.ts). Empty = leaf module."
+          },
+          "allowedExternals": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "External npm packages this module may import. Absent = unrestricted (any package). Present = the module may import ONLY these packages (subpaths like \"pkg/sub\" count as allowed); empty array = pure module, no external packages. node: builtins and relative/internal imports are always allowed; other workspace modules stay governed by allowedImports."
           }
         }
       }

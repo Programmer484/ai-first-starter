@@ -3,7 +3,13 @@
 // The registration is what makes ESLint boundaries, the scope resolver, and
 // docs pick it up — module-map.json is the single source of truth.
 //
-// Usage: pnpm new-module <name> [--desc "what it does"] [--imports a,b] [--gates full|polish]
+// Usage: pnpm new-module <name> [--desc "what it does"] [--imports a,b]
+//                                [--externals a,b | --pure] [--gates full|polish]
+//
+// --externals a,b  restricts the module to importing ONLY packages a and b
+//                  (node: builtins and cross-module imports stay allowed).
+// --pure  (alias for --externals "")  restricts it to NO external packages.
+// Omit both  →  the module is unrestricted (may import any package).
 import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +32,9 @@ function flag(n: string): string | undefined {
   const i = rest.indexOf(n);
   return i >= 0 ? rest[i + 1] : undefined;
 }
+function hasFlag(n: string): boolean {
+  return rest.includes(n);
+}
 const description = flag('--desc') ?? `TODO: describe the ${name} module.`;
 const gates = flag('--gates') ?? 'full';
 if (gates !== 'full' && gates !== 'polish') {
@@ -33,6 +42,15 @@ if (gates !== 'full' && gates !== 'polish') {
   process.exit(2);
 }
 const allowedImports = (flag('--imports') ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+// --externals / --pure are optional. When neither is given, `allowedExternals`
+// is omitted entirely so the module stays unrestricted. `--pure` is sugar for
+// `--externals ""` (an empty allowlist = no external packages).
+const externalsRestricted = hasFlag('--externals') || hasFlag('--pure');
+const allowedExternals = (flag('--externals') ?? '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
@@ -103,14 +121,27 @@ ${allowedImports.length ? allowedImports.map((m) => `- \`${m}\``).join('\n') : '
 
 To change what this module may import, edit \`allowedImports\` for \`${name}\` in
 \`module-map.json\`. Do not hand-edit ESLint config.
+
+## May import (external packages)
+
+${
+  !externalsRestricted
+    ? '- (unrestricted — any npm package)'
+    : allowedExternals.length
+      ? allowedExternals.map((p) => `- \`${p}\``).join('\n')
+      : '- (nothing — pure module, no external packages)'
+}
+
+To change which external packages this module may import, edit
+\`allowedExternals\` for \`${name}\` in \`module-map.json\` (omit the key for
+unrestricted). \`node:\` builtins and cross-module imports are always allowed.
 ${gates === 'polish' ? '\nPolish lane: this module is exempt from the coverage floor only. Lint,\nboundaries, typecheck, and knip still apply.\n' : ''}`,
 );
 
-map.modules.push(
-  gates === 'polish'
-    ? { name, path: relPath, description, allowedImports, gates }
-    : { name, path: relPath, description, allowedImports },
-);
+const entry: (typeof map.modules)[number] = { name, path: relPath, description, allowedImports };
+if (externalsRestricted) entry.allowedExternals = allowedExternals;
+if (gates === 'polish') entry.gates = gates;
+map.modules.push(entry);
 map.modules.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
 writeFileSync(mapPath, JSON.stringify(map, null, 2) + '\n');
 

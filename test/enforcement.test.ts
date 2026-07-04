@@ -53,6 +53,64 @@ describe('rule 3: dependencies must be declared in module-map.json', () => {
   });
 });
 
+describe('rule 3 (external): allowedExternals restricts npm imports', () => {
+  // Register a probe module in the real map with the given allowedExternals
+  // (undefined = omit the field), run the body, then restore the map — mirrors
+  // the rule-4 ghost probe. Same-file tests run sequentially, so this never
+  // races the other real-map mutation below.
+  const mapPath = join(ROOT, 'module-map.json');
+  function withProbeMap(allowedExternals: string[] | undefined, body: () => void): void {
+    const original = readFileSync(mapPath, 'utf8');
+    const map = JSON.parse(original);
+    const entry: Record<string, unknown> = {
+      name: 'zz_probe',
+      path: 'src/modules/zz_probe',
+      description: 'probe',
+      allowedImports: [],
+    };
+    if (allowedExternals !== undefined) entry.allowedExternals = allowedExternals;
+    map.modules.push(entry);
+    writeFileSync(mapPath, JSON.stringify(map, null, 2) + '\n');
+    try {
+      body();
+    } finally {
+      writeFileSync(mapPath, original);
+    }
+  }
+  function plantProbe(source: string): string {
+    mkdirSync(PROBE, { recursive: true });
+    const file = join(PROBE, 'index.ts');
+    writeFileSync(file, source);
+    return file;
+  }
+
+  it('a pure module ([]) importing an npm package fails lint, naming the fix', () => {
+    withProbeMap([], () => {
+      const file = plantProbe("import react from 'react';\nexport const x = react;\n");
+      const { status, out } = run('pnpm', ['exec', 'eslint', '--no-ignore', file]);
+      expect(status).not.toBe(0);
+      expect(out).toContain("may not import external package 'react'");
+      expect(out).toContain('allowedExternals'); // the fix, by name
+    });
+  });
+
+  it('importing a package on the allowlist passes lint', () => {
+    withProbeMap(['pixi.js'], () => {
+      const file = plantProbe("import * as PIXI from 'pixi.js';\nexport const x = PIXI;\n");
+      const { status } = run('pnpm', ['exec', 'eslint', '--no-ignore', file]);
+      expect(status).toBe(0);
+    });
+  });
+
+  it('a module WITHOUT allowedExternals is unrestricted', () => {
+    withProbeMap(undefined, () => {
+      const file = plantProbe("import react from 'react';\nexport const x = react;\n");
+      const { status } = run('pnpm', ['exec', 'eslint', '--no-ignore', file]);
+      expect(status).toBe(0);
+    });
+  });
+});
+
 describe('rule 4: modules are created via new-module (map ↔ folders in sync)', () => {
   it('an unregistered module folder fails module-sync, readably', () => {
     mkdirSync(PROBE, { recursive: true });

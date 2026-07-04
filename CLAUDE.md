@@ -24,6 +24,21 @@ shell layer), the rule says so. Rules that cannot be checked live under
    only if B is in A's `allowedImports` in `module-map.json`.
    — _Enforced by:_ `boundaries/element-types` (`lint` step).
 
+   **Declare external packages too (optional allowlist).** A module may add an
+   `allowedExternals` array to its `module-map.json` entry to restrict which
+   npm packages it may import — keep core logic free of framework/renderer
+   packages by declaring the allowlist. Absent = unrestricted (any package,
+   the default). Present = the module may import ONLY those packages (subpaths
+   like `pkg/sub` count as allowed); `[]` = pure module (no external packages
+   at all). `node:` builtins and cross-module imports (still governed by
+   `allowedImports`) are always allowed. Scaffold with
+   `pnpm new-module <name> --externals a,b` (or `--pure` for `[]`).
+   — _Enforced by:_ `boundaries/external` (`lint` step), generated from the
+   map — a disallowed import fails with `Module '<name>' may not import
+external package '<pkg>'. Add '<pkg>' to allowedExternals for '<name>' in
+module-map.json`; the field's shape is validated by `module-sync` (verify
+   step).
+
 4. **Create modules with the script** (`pnpm new-module <name>`), which
    scaffolds and registers in one move. Hand-made folders drift.
    — _Enforced by:_ `module-sync` (verify step) — an unregistered folder or a

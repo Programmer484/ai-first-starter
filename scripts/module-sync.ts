@@ -20,7 +20,14 @@ const map = readModuleMap(undefined, true);
 // Validate the SHAPE of module-map.json before anything derives from it, so a
 // hand-edit typo (e.g. `allowedImport`) fails here with a named, actionable
 // error instead of crashing later inside eslint.config.js.
-const KNOWN_KEYS = new Set(['name', 'path', 'description', 'allowedImports', 'gates']);
+const KNOWN_KEYS = new Set([
+  'name',
+  'path',
+  'description',
+  'allowedImports',
+  'allowedExternals',
+  'gates',
+]);
 const GATE_PROFILES = ['full', 'polish'];
 const REQUIRED_KEYS = ['name', 'path', 'description', 'allowedImports'];
 const shapeErrors: string[] = [];
@@ -112,6 +119,28 @@ for (let i = 0; i < map.modules.length; i++) {
           shapeErrors.push(
             `Module ${label} lists itself in \`allowedImports\`.\n` +
               `  Fix: remove the self-import "${dep}".`,
+          );
+        }
+      }
+    }
+  }
+
+  // allowedExternals is optional. Absent = unrestricted. When present it must
+  // be an array of package-name strings (empty = pure module). Validate the
+  // shape here so a hand-edit typo fails with a named error before eslint
+  // derives the boundaries/external rules from it.
+  if ('allowedExternals' in m) {
+    if (!Array.isArray(m.allowedExternals)) {
+      shapeErrors.push(
+        `Module ${label} has a non-array \`allowedExternals\`.\n` +
+          `  Fix: set \`allowedExternals\` to an array of package names ([] = pure module, no external packages), or omit the key for unrestricted.`,
+      );
+    } else {
+      for (const pkg of m.allowedExternals) {
+        if (typeof pkg !== 'string' || pkg.trim() === '') {
+          shapeErrors.push(
+            `Module ${label} has a non-string or empty entry in \`allowedExternals\`.\n` +
+              `  Fix: every \`allowedExternals\` entry must be a non-empty package-name string (e.g. "pixi.js").`,
           );
         }
       }

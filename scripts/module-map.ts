@@ -18,6 +18,7 @@ export type ModuleMap = {
     path: string;
     description?: string;
     allowedImports?: string[];
+    allowedExternals?: string[];
     gates?: string;
   }>;
 };

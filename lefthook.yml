@@ -1,9 +1,22 @@
+# Pre-commit runs the SAME gate as CI (scripts/verify.ts) — identical checks,
+# no drift by construction. A fast pre-check first refuses partially-staged
+# commits (a staged file that also has unstaged changes): verify would then
+# test content that differs from your working tree, which is confusing at
+# best. Lefthook stashes unstaged changes before running hooks ("lefthook
+# auto backup"), so inside the hook worktree == index — the presence of that
+# backup stash IS the partial-staging signal.
 pre-commit:
-  parallel: true
+  piped: true
   commands:
-    format:
-      glob: '*.{ts,js,json,md,yml,yaml}'
-      run: pnpm prettier --check {staged_files}
-    lint:
-      glob: '*.ts'
-      run: pnpm eslint --no-warn-ignored {staged_files}
+    1_no-partial-stage:
+      run: >
+        if git stash list | grep -q 'lefthook auto backup';
+        then echo 'Partially staged changes detected: some staged files also
+        have unstaged modifications, so verify would test different content
+        than your working tree. Stage the changes (git add) or stash them
+        (git stash push --keep-index), then commit.'; exit 1; fi
+    2_verify:
+      # Full gate stays here — this is the ship gate. `pnpm verify --fast`
+      # is the agent inner loop (changed-files lint/format, no coverage,
+      # ratchet/knip skipped); never substitute it for the pre-commit run.
+      run: pnpm verify

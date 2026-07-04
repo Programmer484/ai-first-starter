@@ -8,3 +8,13 @@ coverage
 
 # Per-project run ledger.
 edit-log.jsonl
+
+# One-time "no scope active" acknowledgement marker (scope-guard hook).
+.task/.unscoped-ack
+
+# Latest verify failure snapshot (verify --agent).
+.task/last-verify.json
+
+# Stryker mutation-test sandbox (pnpm mutation).
+.stryker-tmp
+reports

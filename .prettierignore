@@ -2,3 +2,7 @@ dist
 coverage
 node_modules
 pnpm-lock.yaml
+# Sibling task worktrees are separate checkouts with their own gates —
+# scanning them makes this checkout's format check fail on their WIP.
+.claude/worktrees
+.stryker-tmp

@@ -22,6 +22,35 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Same gate as local `pnpm verify` — one exit code.
+      # Ratchet baseline: make origin/main resolvable in the shallow checkout.
+      # A failed fetch fails CI loudly — RATCHET_REQUIRE below would fail
+      # anyway, this just fails earlier with the real error.
+      - name: Fetch ratchet baseline
+        run: git fetch origin main --depth=1
+
+      # Same gate as local `pnpm verify` — one exit code. RATCHET_REQUIRE
+      # makes a missing baseline an error instead of a skip-pass.
       - name: Verify
         run: pnpm verify
+        env:
+          RATCHET_REQUIRE: '1'
+
+  # CI-only: mutation testing is too slow for the local `pnpm verify` gate.
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Mutation test
+        run: pnpm mutation

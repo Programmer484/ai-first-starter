@@ -4,8 +4,9 @@
     "scripts/*.ts",
     ".claude/hooks/*.ts",
     "src/modules/*/index.ts",
-    "src/modules/*/__tests__/**/*.ts"
+    "src/modules/*/__tests__/**/*.ts",
+    "test/**/*.test.ts"
   ],
-  "project": ["src/**/*.ts", "scripts/**/*.ts", ".claude/hooks/**/*.ts"],
+  "project": ["src/**/*.ts", "scripts/**/*.ts", ".claude/hooks/**/*.ts", "test/**/*.ts"],
   "ignoreDependencies": ["vite"]
 }

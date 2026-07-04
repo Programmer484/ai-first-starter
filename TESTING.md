@@ -7,16 +7,20 @@ coverage floor is enforced by `pnpm verify`.
 
 - One `__tests__/` folder per module: `src/modules/<name>/__tests__/`.
 - File name mirrors the unit under test: `greeting.ts` → `greeting.test.ts`.
-- Tests may import their **own** module's `internal/` files; they may import
-  **other** modules only through `index.ts`.
+- Tests may deep-import their **own** module's `internal/` files (same-element
+  imports aren't boundary crossings); they may import **other** modules only
+  through `index.ts` — deep-importing another module's internals fails lint
+  even from tests. There is no test exemption.
 
 ## 2. What to test (in priority order)
 
 1. **The public surface first.** Every export from `index.ts` gets at least one
    test. This is the contract other modules depend on.
 2. **Branches and edge cases.** Empty/blank input, boundaries, error paths.
-   Coverage floor is 80% (lines, branches, functions, statements) — write the
-   branch test, don't chase the number.
+   Coverage floor is 80% (lines, functions, branches, statements) — write the
+   branch test, don't chase the number. (Polish-lane modules — `"gates": "polish"`
+   in `module-map.json` — are excluded from the floor only; every other
+   check still runs.)
 3. **Internal units** only when the logic is non-trivial and hard to reach
    through the public API.
 

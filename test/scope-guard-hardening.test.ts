@@ -99,6 +99,50 @@ describe('bash write heuristic', () => {
     expect(status).toBe(0);
   });
 
+  it('blocks a redirect that rewrites .task/allowed-files.json', () => {
+    setScope(['src/modules/other/**']);
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: `printf '{"allow":["**"]}' > .task/allowed-files.json` },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+    expect(out).toContain('pnpm scope --add'); // the fix, by name
+  });
+
+  it('blocks truncating the edit-log.jsonl ledger', () => {
+    setScope(['src/modules/other/**']);
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: '> edit-log.jsonl' },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain('append-only');
+  });
+
+  it('blocks pnpm exec sed -i on an out-of-scope path', () => {
+    setScope(['src/modules/other/**']);
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: "pnpm exec sed -i 's/a/b/' src/modules/_example/index.ts" },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain('pnpm scope --add'); // the fix, by name
+  });
+
+  it('allows pnpm exec commands with no write indicator', () => {
+    setScope(['src/modules/other/**']);
+    const { status } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: 'pnpm exec eslint .' },
+      cwd,
+    });
+    expect(status).toBe(0);
+  });
+
   it('allows writes outside the repo root', () => {
     setScope(['src/modules/other/**']);
     const { status } = runHook({

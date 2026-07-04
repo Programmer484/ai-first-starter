@@ -114,7 +114,7 @@ function blockMessage(file: string, globs: string[], repeat: boolean): string {
 // Block a Bash call only when we're confident it writes an in-repo,
 // out-of-scope file. Anything ambiguous is allowed.
 
-const NEVER_BLOCK = [/^pnpm scope\b/, /^pnpm verify\b/, /^pnpm exec\b/, /^node scripts\//];
+const NEVER_BLOCK = [/^pnpm scope\b/, /^pnpm verify\b/, /^node scripts\//];
 const KNOWN_EXT =
   /\.(ts|tsx|js|jsx|mjs|cjs|json|jsonl|md|txt|yml|yaml|css|html|sh|toml|lock|snap)$/;
 const IGNORED_DIRS = /^(\.git|node_modules|coverage|\.task)(\/|$)/;
@@ -148,8 +148,10 @@ function bashOffendingPath(command: string, cwd: string, globs: string[]): strin
     if (!token.includes('/') && !KNOWN_EXT.test(token)) continue;
     const rel = normalize(resolve(cwd, token.replace(/^of=/, '')), cwd);
     if (rel.startsWith('..') || isAbsolute(rel)) continue; // Outside the repo — always allowed.
+    // The scope file and the audit ledger are never bash-writable, even
+    // though .task/ is otherwise ignored and the ledger is append-target.
+    if (rel === '.task/allowed-files.json' || rel === 'edit-log.jsonl') return rel;
     if (IGNORED_DIRS.test(rel)) continue;
-    if (rel === 'edit-log.jsonl') continue;
     if (!globs.some((g) => globToRegExp(g).test(rel))) return rel;
   }
   return null;
@@ -200,6 +202,28 @@ function main(): void {
     if (!command) process.exit(0);
     const offending = bashOffendingPath(command, cwd, globs);
     if (!offending) process.exit(0);
+    if (offending === '.task/allowed-files.json') {
+      block(
+        cwd,
+        input.tool_name,
+        offending,
+        globs,
+        `scope-guard: don't hand-edit .task/allowed-files.json.\n` +
+          `Widen the scope with: pnpm scope --add <module|path>`,
+        'bash',
+      );
+    }
+    if (offending === 'edit-log.jsonl') {
+      block(
+        cwd,
+        input.tool_name,
+        offending,
+        globs,
+        `scope-guard: edit-log.jsonl is an append-only audit ledger — don't overwrite it.\n` +
+          `If you need to record something, append; to widen scope use: pnpm scope --add <module|path>`,
+        'bash',
+      );
+    }
     const repeat = hasPriorBlock(cwd, offending);
     block(
       cwd,

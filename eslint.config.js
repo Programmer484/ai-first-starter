@@ -63,13 +63,6 @@ export default tseslint.config(
     },
   },
   {
-    // Tests may reach into their own module's internals freely.
-    files: ['src/**/__tests__/**/*.ts', 'src/**/*.{test,spec}.ts'],
-    rules: {
-      'boundaries/entry-point': 'off',
-    },
-  },
-  {
     files: ['scripts/**/*.ts', '*.ts'],
     rules: {
       'no-console': 'off',

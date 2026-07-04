@@ -34,3 +34,23 @@ jobs:
         run: pnpm verify
         env:
           RATCHET_REQUIRE: '1'
+
+  # CI-only: mutation testing is too slow for the local `pnpm verify` gate.
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Mutation test
+        run: pnpm mutation

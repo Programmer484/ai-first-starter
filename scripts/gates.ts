@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-// Coverage-exclude globs for polish modules. `mapPath` defaults to the real
+// Per-glob zero thresholds for polish modules: coverage is still measured
+// and reported, only the gate is zeroed. `mapPath` defaults to the real
 // map. No env override: this runs at vitest config-eval time, and a stray
-// MODULE_MAP would silently swap the real coverage excludes.
-export function polishCoverageExcludes(mapPath?: string): string[] {
+// MODULE_MAP would silently swap the real coverage thresholds.
+type Floor = { lines: number; functions: number; branches: number; statements: number };
+export function polishCoverageThresholds(mapPath?: string): Record<string, Floor> {
   const path = resolve(mapPath ?? resolve(ROOT, 'module-map.json'));
   let map: { modules: Array<{ name: string; gates?: string }> };
   try {
@@ -19,5 +21,12 @@ export function polishCoverageExcludes(mapPath?: string): string[] {
       `gates: cannot parse ${path} (${err instanceof Error ? err.message : err}) — fix module-map.json; \`pnpm verify\` (module-sync) diagnoses it`,
     );
   }
-  return map.modules.filter((m) => m.gates === 'polish').map((m) => `src/modules/${m.name}/**`);
+  return Object.fromEntries(
+    map.modules
+      .filter((m) => m.gates === 'polish')
+      .map((m) => [
+        `src/modules/${m.name}/**`,
+        { lines: 0, functions: 0, branches: 0, statements: 0 },
+      ]),
+  );
 }

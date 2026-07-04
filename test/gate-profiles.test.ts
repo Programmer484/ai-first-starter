@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, rmSync, mkdtempSync, mkdirSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { polishCoverageExcludes } from '../scripts/gates.ts';
+import { polishCoverageThresholds } from '../scripts/gates.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const REAL_MAP = JSON.parse(readFileSync(join(ROOT, 'module-map.json'), 'utf8'));
@@ -48,8 +48,8 @@ function runModuleSync(mapPath: string) {
   return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
 }
 
-describe('gates helper (polishCoverageExcludes)', () => {
-  it('returns the exclude glob for a polish module and nothing for full/absent', () => {
+describe('gates helper (polishCoverageThresholds)', () => {
+  it('returns a zero-floor entry for a polish module and nothing for full/absent', () => {
     const mapPath = writeMap((map) => {
       map.modules.push(
         { name: 'zz_gates_polish', gates: 'polish' },
@@ -57,11 +57,13 @@ describe('gates helper (polishCoverageExcludes)', () => {
         { name: 'zz_gates_absent' },
       );
     });
-    expect(polishCoverageExcludes(mapPath)).toEqual(['src/modules/zz_gates_polish/**']);
+    expect(polishCoverageThresholds(mapPath)).toEqual({
+      'src/modules/zz_gates_polish/**': { lines: 0, functions: 0, branches: 0, statements: 0 },
+    });
   });
 
-  it('returns nothing for the current repo map', () => {
-    expect(polishCoverageExcludes(join(ROOT, 'module-map.json'))).toEqual([]);
+  it('returns an empty object for the current repo map', () => {
+    expect(polishCoverageThresholds(join(ROOT, 'module-map.json'))).toEqual({});
   });
 });
 
@@ -125,19 +127,31 @@ describe('new-module --gates', () => {
 });
 
 describe('vitest config wiring', () => {
-  it('coverage.exclude for the current repo map keeps the baseline excludes', async () => {
+  it('keeps baseline excludes and global floors first in thresholds', async () => {
     const config = (await import('../vitest.config.ts')).default as {
-      test: { coverage: { exclude: string[] } };
+      test: { coverage: { exclude: string[]; thresholds: Record<string, unknown> } };
     };
-    const exclude = config.test.coverage.exclude;
-    expect(exclude).toContain('src/modules/**/__tests__/**');
-    expect(exclude).toContain('src/modules/**/*.{test,spec}.ts');
-    // Repo map has no polish modules, so nothing extra is appended.
-    expect(exclude).toEqual([...exclude].filter((g) => !g.startsWith('src/modules/zz_')));
-    expect(exclude).toEqual([
+    expect(config.test.coverage.exclude).toEqual([
       'src/modules/**/__tests__/**',
       'src/modules/**/*.{test,spec}.ts',
-      ...polishCoverageExcludes(join(ROOT, 'module-map.json')),
     ]);
+    const thresholds = config.test.coverage.thresholds;
+    // ratchet regex-parses the first four floors after `thresholds`; the
+    // globals must stay first and per-glob polish entries come after.
+    expect(Object.keys(thresholds).slice(0, 4)).toEqual([
+      'lines',
+      'functions',
+      'branches',
+      'statements',
+    ]);
+    expect(thresholds).toMatchObject({ lines: 80, functions: 80, branches: 80, statements: 80 });
+    // Repo map has no polish modules, so no per-glob entries are appended.
+    expect(thresholds).toEqual({
+      lines: 80,
+      functions: 80,
+      branches: 80,
+      statements: 80,
+      ...polishCoverageThresholds(join(ROOT, 'module-map.json')),
+    });
   });
 });

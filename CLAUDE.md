@@ -63,9 +63,10 @@ shell layer), the rule says so. Rules that cannot be checked live under
    — _Enforced by:_ coverage `thresholds` in `vitest.config.ts` (`test`
    step); `ratchet` (verify step) fails any lowering of the `lines` floor
    against origin/main (skip-passes when no baseline ref resolves;
-   `RATCHET_BASE` / `RATCHET_BASE_CONTENT` override the baseline). Polish
-   excludes are generated from the map (`scripts/gates.ts`) and the `gates`
-   value is validated by `module-sync`.
+   `RATCHET_BASE` / `RATCHET_BASE_CONTENT` override the baseline). Polish modules get
+   per-glob zero thresholds generated from the map (`scripts/gates.ts`) —
+   coverage is still measured and reported, only the floor is zeroed — and
+   the `gates` value is validated by `module-sync`.
 
 8. **No dead code.** Remove unused exports and files rather than keeping
    them "for later".

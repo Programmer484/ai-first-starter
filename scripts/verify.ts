@@ -19,6 +19,7 @@ const steps: Step[] = [
   { name: 'lint', cmd: 'pnpm', args: ['exec', 'eslint', '.'] },
   { name: 'typecheck', cmd: 'pnpm', args: ['exec', 'tsc', '--noEmit'] },
   { name: 'test', cmd: 'pnpm', args: ['exec', 'vitest', 'run', '--coverage'] },
+  { name: 'ratchet', cmd: 'node', args: ['scripts/ratchet.ts'] },
   { name: 'knip', cmd: 'pnpm', args: ['exec', 'knip'] },
 ];
 

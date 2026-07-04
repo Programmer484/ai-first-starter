@@ -3,12 +3,19 @@
 // The registration is what makes ESLint boundaries, the scope resolver, and
 // docs pick it up — module-map.json is the single source of truth.
 //
-// Usage: pnpm new-module <name> [--desc "what it does"] [--imports a,b]
+// Usage: pnpm new-module <name> [--desc "what it does"] [--imports a,b] [--gates full|polish]
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const mapPath = ROOT + 'module-map.json';
+
+// Same sandbox overrides as module-sync: MODULE_MAP / MODULE_SRC_ROOT let
+// tests scaffold into a temp dir. Defaults are the real repo paths.
+const mapPath = process.env.MODULE_MAP
+  ? resolve(process.env.MODULE_MAP)
+  : join(ROOT, 'module-map.json');
+const SRC_ROOT = process.env.MODULE_SRC_ROOT ? resolve(process.env.MODULE_SRC_ROOT) : ROOT;
 
 const [name, ...rest] = process.argv.slice(2);
 if (!name || !/^[a-z_][a-z0-9_-]*$/.test(name)) {
@@ -21,6 +28,11 @@ function flag(n: string): string | undefined {
   return i >= 0 ? rest[i + 1] : undefined;
 }
 const description = flag('--desc') ?? `TODO: describe the ${name} module.`;
+const gates = flag('--gates') ?? 'full';
+if (gates !== 'full' && gates !== 'polish') {
+  console.error(`Invalid --gates "${gates}". Usage: new-module <name> [--gates full|polish]`);
+  process.exit(2);
+}
 const allowedImports = (flag('--imports') ?? '')
   .split(',')
   .map((s) => s.trim())
@@ -33,7 +45,7 @@ if (map.modules.some((m: { name: string }) => m.name === name)) {
 }
 
 const relPath = `src/modules/${name}`;
-const dir = ROOT + relPath;
+const dir = join(SRC_ROOT, relPath);
 if (existsSync(dir)) {
   console.error(`Directory ${relPath} already exists.`);
   process.exit(1);
@@ -92,10 +104,14 @@ ${allowedImports.length ? allowedImports.map((m) => `- \`${m}\``).join('\n') : '
 
 To change what this module may import, edit \`allowedImports\` for \`${name}\` in
 \`module-map.json\`. Do not hand-edit ESLint config.
-`,
+${gates === 'polish' ? '\nPolish lane: this module is exempt from the coverage floor only. Lint,\nboundaries, typecheck, and knip still apply.\n' : ''}`,
 );
 
-map.modules.push({ name, path: relPath, description, allowedImports });
+map.modules.push(
+  gates === 'polish'
+    ? { name, path: relPath, description, allowedImports, gates }
+    : { name, path: relPath, description, allowedImports },
+);
 map.modules.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
 writeFileSync(mapPath, JSON.stringify(map, null, 2) + '\n');
 

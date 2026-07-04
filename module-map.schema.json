@@ -26,6 +26,10 @@
             "type": "string",
             "description": "One line: what this module is responsible for."
           },
+          "gates": {
+            "enum": ["full", "polish"],
+            "description": "Gate profile. \"polish\" opts out of the coverage floor only; everything else stays on. Absent = \"full\"."
+          },
           "allowedImports": {
             "type": "array",
             "items": { "type": "string" },

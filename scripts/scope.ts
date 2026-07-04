@@ -15,9 +15,14 @@
 //   pnpm scope src/modules/foo/index.ts # literal path (fallback)
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { appendRun } from './edit-log.ts';
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
+// Defaults to the real repo; SCOPE_ROOT lets tests run against a sandbox
+// (same pattern as MODULE_MAP / MODULE_SRC_ROOT in module-sync.ts).
+const ROOT = process.env.SCOPE_ROOT
+  ? resolve(process.env.SCOPE_ROOT) + '/'
+  : fileURLToPath(new URL('..', import.meta.url));
 const mapPath = ROOT + 'module-map.json';
 const outPath = ROOT + '.task/allowed-files.json';
 
@@ -56,6 +61,9 @@ for (const arg of args) {
     const found = modules.filter((m) => new RegExp(`\\b${m.name}\\b`).test(text));
     if (found.length > 0) {
       found.forEach(addModule);
+      // Additive, not exclusive: the literal path must unblock too, or
+      // `pnpm scope --add <blocked-file>` loops when the file names a module.
+      allow.add(arg);
     } else {
       allow.add(arg);
       fallbacks.push(arg);

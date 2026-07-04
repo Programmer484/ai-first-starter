@@ -5,7 +5,9 @@
 import { appendFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const LOG_PATH = fileURLToPath(new URL('../edit-log.jsonl', import.meta.url));
+// EDIT_LOG lets tests redirect the ledger to a sandbox path.
+const LOG_PATH =
+  process.env.EDIT_LOG ?? fileURLToPath(new URL('../edit-log.jsonl', import.meta.url));
 
 export type RunRecord = Record<string, unknown> & { kind: string };
 

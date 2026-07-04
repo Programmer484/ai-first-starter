@@ -4,26 +4,19 @@
 // stay clear of sibling test files' probes.
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classifyLine } from '../scripts/baseline.ts';
+import { run, plantUnformattedProbe, cleanupProbe } from './helpers.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PROBE = join(ROOT, 'src/modules/zz_baseline_probe');
 
-function run(args: string[]) {
-  const res = spawnSync('node', args, { cwd: ROOT, encoding: 'utf8' });
-  return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
-}
-
-function plantProbe() {
-  mkdirSync(PROBE, { recursive: true });
-  writeFileSync(join(PROBE, 'index.ts'), 'export const x =    1\n');
-}
+const plantProbe = () => plantUnformattedProbe('zz_baseline_probe');
 
 afterEach(() => {
-  rmSync(PROBE, { recursive: true, force: true });
+  cleanupProbe('zz_baseline_probe');
 });
 
 describe('verify --baseline', () => {
@@ -42,7 +35,7 @@ describe('verify --baseline', () => {
 
       plantProbe();
       try {
-        const { status, out } = run(['scripts/verify.ts', 'format', '--baseline']);
+        const { status, out } = run('node', ['scripts/verify.ts', 'format', '--baseline']);
         expect(status).not.toBe(0);
         expect(out).toContain('introduced by working-tree changes');
 
@@ -58,7 +51,7 @@ describe('the --baseline hint line', () => {
   it('a failing verify without the flag prints the hint', { timeout: 60_000 }, () => {
     plantProbe();
     try {
-      const { status, out } = run(['scripts/verify.ts', 'format']);
+      const { status, out } = run('node', ['scripts/verify.ts', 'format']);
       expect(status).not.toBe(0);
       expect(out).toContain('pnpm verify --baseline');
     } finally {
@@ -70,7 +63,7 @@ describe('the --baseline hint line', () => {
     // ratchet, not format: `prettier --check .` sees sibling suites'
     // transient zz_* probe files under parallel workers; ratchet only reads
     // vitest.config.ts + git refs, so it passes regardless of sibling state.
-    const { status, out } = run(['scripts/verify.ts', 'ratchet']);
+    const { status, out } = run('node', ['scripts/verify.ts', 'ratchet']);
     expect(status).toBe(0);
     expect(out).not.toContain('pnpm verify --baseline');
   });

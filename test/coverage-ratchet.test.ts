@@ -2,9 +2,9 @@
 // `node scripts/ratchet.ts` directly with env overrides — no shared repo
 // state is touched, so these are safe under parallel workers.
 import { describe, it, expect } from 'vitest';
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { run } from './helpers.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -13,12 +13,7 @@ const config = readFileSync(ROOT + 'vitest.config.ts', 'utf8');
 const current = Number(/thresholds[\s\S]*?lines:\s*(\d+)/.exec(config)![1]);
 
 function ratchet(env: Record<string, string>) {
-  const res = spawnSync('node', ['scripts/ratchet.ts'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    env: { ...process.env, ...env },
-  });
-  return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
+  return run('node', ['scripts/ratchet.ts'], { env });
 }
 
 const base = (lines: number) => `export default { coverage: { thresholds: { lines: ${lines} } } };`;

@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { polishCoverageThresholds } from '../scripts/gates.ts';
+import { runModuleSyncWith } from './helpers.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const REAL_MAP = JSON.parse(readFileSync(join(ROOT, 'module-map.json'), 'utf8'));
@@ -24,28 +25,6 @@ function writeMap(mutate: (map: LooseMap) => void): string {
   const mapPath = join(tmp, 'module-map.json');
   writeFileSync(mapPath, JSON.stringify(map, null, 2) + '\n');
   return mapPath;
-}
-
-// Sandboxed src root mirroring the map's modules, so module-sync's
-// folder-sync pass is satisfied independent of the real repo.
-function srcRootFor(mapPath: string): string {
-  const map = JSON.parse(readFileSync(mapPath, 'utf8')) as LooseMap;
-  const srcRoot = join(tmp, 'src-root');
-  mkdirSync(join(srcRoot, 'src/modules'), { recursive: true });
-  for (const m of map.modules) {
-    if (typeof m.name === 'string')
-      mkdirSync(join(srcRoot, 'src/modules', m.name), { recursive: true });
-  }
-  return srcRoot;
-}
-
-function runModuleSync(mapPath: string) {
-  const res = spawnSync('node', ['scripts/module-sync.ts'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    env: { ...process.env, MODULE_MAP: mapPath, MODULE_SRC_ROOT: srcRootFor(mapPath) },
-  });
-  return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
 }
 
 describe('gates helper (polishCoverageThresholds)', () => {
@@ -69,19 +48,17 @@ describe('gates helper (polishCoverageThresholds)', () => {
 
 describe('module-sync gates validation', () => {
   it('accepts `"gates": "polish"` with no unknown-key warning', () => {
-    const mapPath = writeMap((map) => {
+    const { status, out } = runModuleSyncWith((map) => {
       map.modules[0]!.gates = 'polish';
     });
-    const { status, out } = runModuleSync(mapPath);
     expect(status).toBe(0);
     expect(out).not.toContain('unknown key');
   });
 
   it('rejects an invalid gates value, naming full | polish', () => {
-    const mapPath = writeMap((map) => {
+    const { status, out } = runModuleSyncWith((map) => {
       map.modules[0]!.gates = 'sometimes';
     });
-    const { status, out } = runModuleSync(mapPath);
     expect(status).toBe(1);
     expect(out).toContain('full | polish');
   });

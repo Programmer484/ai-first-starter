@@ -7,13 +7,10 @@
 // enforcement.test.ts (vitest runs files in parallel) and can never leave a
 // lingering scope file that would make the live hook block real edits.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
 import { writeFileSync, rmSync, existsSync, mkdtempSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
-
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
+import { run } from './helpers.ts';
 
 let cwd: string;
 let taskFile: string;
@@ -33,12 +30,7 @@ afterEach(() => {
 });
 
 function runHook(payload: object) {
-  const res = spawnSync('node', ['.claude/hooks/scope-guard.ts'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    input: JSON.stringify(payload),
-  });
-  return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
+  return run('node', ['.claude/hooks/scope-guard.ts'], { input: JSON.stringify(payload) });
 }
 
 function setScope(allow: string[]) {

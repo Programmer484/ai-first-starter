@@ -8,19 +8,14 @@
 // rule 7 (coverage floor — probing it means running vitest inside vitest;
 // the threshold config in vitest.config.ts is exercised on every verify run).
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { run, plantUnformattedProbe } from './helpers.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PROBE = join(ROOT, 'src/modules/zz_probe');
-
-function run(cmd: string, args: string[], stdin?: string) {
-  const res = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', input: stdin });
-  return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
-}
 
 afterEach(() => {
   rmSync(PROBE, { recursive: true, force: true });
@@ -117,7 +112,7 @@ describe('rule 5: scope-guard blocks and logs out-of-scope edits', () => {
       tool_input: { file_path: join(scratch, 'scripts/verify.ts') },
       cwd: scratch,
     });
-    const { status, out } = run('node', ['.claude/hooks/scope-guard.ts'], payload);
+    const { status, out } = run('node', ['.claude/hooks/scope-guard.ts'], { input: payload });
     expect(status).toBe(2);
     expect(out).toContain('outside the current task scope');
     expect(out).toContain('pnpm scope'); // the fix, by name
@@ -134,7 +129,7 @@ describe('rule 5: scope-guard blocks and logs out-of-scope edits', () => {
       tool_input: { file_path: join(scratch, 'src/modules/_example/index.ts') },
       cwd: scratch,
     });
-    const { status } = run('node', ['.claude/hooks/scope-guard.ts'], payload);
+    const { status } = run('node', ['.claude/hooks/scope-guard.ts'], { input: payload });
     expect(status).toBe(0);
     expect(existsSync(logFile)).toBe(false);
   });
@@ -142,9 +137,7 @@ describe('rule 5: scope-guard blocks and logs out-of-scope edits', () => {
 
 describe('rule 9: canonical formatting', () => {
   it('an unformatted file fails the format check, naming the file', () => {
-    mkdirSync(PROBE, { recursive: true });
-    const file = join(PROBE, 'index.ts');
-    writeFileSync(file, 'export const x =    1\n'); // extra spaces, no semi style
+    const file = join(plantUnformattedProbe('zz_probe'), 'index.ts');
     const { status, out } = run('pnpm', ['exec', 'prettier', '--check', file]);
     expect(status).not.toBe(0);
     expect(out).toContain('zz_probe/index.ts');

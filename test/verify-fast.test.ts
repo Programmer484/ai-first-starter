@@ -2,24 +2,19 @@
 // structured eslint summary in `--agent` mode. Own probe prefix (zz_fast_*)
 // so parallel test files can't clobber each other.
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { run } from './helpers.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const FMT_PROBE = join(ROOT, 'src/modules/zz_fast_fmt');
 const LINT_PROBE = join(ROOT, 'src/modules/zz_fast_lint');
 
 function verify(args: string[]) {
-  const res = spawnSync('node', ['scripts/verify.ts', ...args], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    // Marker so a nested `vitest --changed` (spawned by the full --fast run
-    // below) skips the recursive test instead of forking forever.
-    env: { ...process.env, ZZ_FAST_META: '1' },
-  });
-  return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
+  // Marker so a nested `vitest --changed` (spawned by the full --fast run
+  // below) skips the recursive test instead of forking forever.
+  return run('node', ['scripts/verify.ts', ...args], { env: { ZZ_FAST_META: '1' } });
 }
 
 afterEach(() => {

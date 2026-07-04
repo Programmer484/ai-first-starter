@@ -3,7 +3,7 @@
 // edit-log.jsonl so an agent (or a human) can see what happened, when, and whether
 // it passed — without trawling shell history.
 import { appendFileSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // EDIT_LOG lets tests redirect the ledger to a sandbox path.
 const LOG_PATH =
@@ -35,4 +35,4 @@ function main(): void {
   for (const line of lines.slice(-20)) console.log(line);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

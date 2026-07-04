@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { appendRun } from './edit-log.ts';
 
 export function classifyLine(step: string, passesAtHead: boolean): string {
@@ -93,4 +94,4 @@ function main(): void {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

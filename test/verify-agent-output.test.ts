@@ -4,33 +4,26 @@
 // enforcement.test.ts, but with its own probe dir (zz_probe_agent) so the two
 // files can't clobber each other when vitest runs them in parallel.
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { run, plantUnformattedProbe, cleanupProbe } from './helpers.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const PROBE = join(ROOT, 'src/modules/zz_probe_agent');
 const SNAPSHOT = join(ROOT, '.task/last-verify.json');
 
 function verify(args: string[]) {
-  const res = spawnSync('node', ['scripts/verify.ts', ...args], { cwd: ROOT, encoding: 'utf8' });
-  return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
-}
-
-function plantUnformattedProbe() {
-  mkdirSync(PROBE, { recursive: true });
-  writeFileSync(join(PROBE, 'index.ts'), 'export const x =    1\n');
+  return run('node', ['scripts/verify.ts', ...args]);
 }
 
 afterEach(() => {
-  rmSync(PROBE, { recursive: true, force: true });
+  cleanupProbe('zz_probe_agent');
   rmSync(SNAPSHOT, { force: true });
 });
 
 describe('verify --agent: bounded failure output', () => {
   it('names the failing file, stays bounded, and writes the snapshot', () => {
-    plantUnformattedProbe();
+    plantUnformattedProbe('zz_probe_agent');
     const { status, out } = verify(['format', '--agent']);
     expect(status).not.toBe(0);
     expect(out).toContain('zz_probe_agent/index.ts');
@@ -45,7 +38,7 @@ describe('verify --agent: bounded failure output', () => {
 
 describe('verify --agent: snapshot overwrite semantics', () => {
   it('two runs leave exactly one snapshot document, the latest', () => {
-    plantUnformattedProbe();
+    plantUnformattedProbe('zz_probe_agent');
     verify(['format', '--agent']);
     const first = JSON.parse(readFileSync(SNAPSHOT, 'utf8'));
     verify(['format', '--agent']);

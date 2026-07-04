@@ -4,7 +4,6 @@
 // output/exit code. Runs against a mkdtemp sandbox (SCOPE_ROOT / EDIT_LOG
 // overrides), never the real repo's .task or ledger.
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
 import {
   rmSync,
   readFileSync,
@@ -17,6 +16,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { run } from './helpers.ts';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const scriptPath = join(REPO, 'scripts/scope.ts');
@@ -39,12 +39,10 @@ afterEach(() => {
 });
 
 function scope(...args: string[]) {
-  const res = spawnSync('node', [scriptPath, ...args], {
+  return run('node', [scriptPath, ...args], {
     cwd: root,
-    encoding: 'utf8',
-    env: { ...process.env, SCOPE_ROOT: root, EDIT_LOG: logFile },
+    env: { SCOPE_ROOT: root, EDIT_LOG: logFile },
   });
-  return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
 }
 
 describe('scope --add merges into the existing allow set', () => {

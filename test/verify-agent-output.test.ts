@@ -4,7 +4,7 @@
 // enforcement.test.ts, but with its own probe dir (zz_probe_agent) so the two
 // files can't clobber each other when vitest runs them in parallel.
 import { describe, it, expect, afterEach } from 'vitest';
-import { rmSync, readFileSync } from 'node:fs';
+import { rmSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run, plantUnformattedProbe, cleanupProbe } from './helpers.ts';
@@ -50,10 +50,20 @@ describe('verify --agent: snapshot overwrite semantics', () => {
 });
 
 describe('verify default mode is unchanged', () => {
-  // retry: enforcement.test.ts plants transient unformatted probes in a
-  // parallel worker; a rare overlap makes a clean-tree run fail once.
-  it('exits 0 on a clean tree with no summary block', { retry: 2 }, () => {
-    const { status, out } = verify(['format']);
+  // Sibling test files plant transient zz_* probe modules in the shared
+  // src/modules/, so "clean tree" is only true in the gaps between them.
+  // Retry until a run both starts and ends probe-free (blind retries lose
+  // whenever probes stay planted longer than the retry window).
+  const probesPresent = () =>
+    readdirSync(join(ROOT, 'src/modules')).some((d) => d.startsWith('zz_'));
+  it('exits 0 on a clean tree with no summary block', { timeout: 90_000 }, async () => {
+    let status: number | null = 1;
+    let out = '';
+    const deadline = Date.now() + 75_000;
+    do {
+      while (probesPresent() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 500));
+      ({ status, out } = verify(['format']));
+    } while (status !== 0 && probesPresent() && Date.now() < deadline);
     expect(status).toBe(0);
     expect(out).toContain('verify: PASS');
     expect(out).not.toContain('(general)');

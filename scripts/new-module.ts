@@ -4,17 +4,16 @@
 // docs pick it up — module-map.json is the single source of truth.
 //
 // Usage: pnpm new-module <name> [--desc "what it does"] [--imports a,b] [--gates full|polish]
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readModuleMap, moduleMapPath } from './module-map.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 // Same sandbox overrides as module-sync: MODULE_MAP / MODULE_SRC_ROOT let
 // tests scaffold into a temp dir. Defaults are the real repo paths.
-const mapPath = process.env.MODULE_MAP
-  ? resolve(process.env.MODULE_MAP)
-  : join(ROOT, 'module-map.json');
+const mapPath = moduleMapPath(undefined, true);
 const SRC_ROOT = process.env.MODULE_SRC_ROOT ? resolve(process.env.MODULE_SRC_ROOT) : ROOT;
 
 const [name, ...rest] = process.argv.slice(2);
@@ -38,7 +37,7 @@ const allowedImports = (flag('--imports') ?? '')
   .map((s) => s.trim())
   .filter(Boolean);
 
-const map = JSON.parse(readFileSync(mapPath, 'utf8'));
+const map = readModuleMap(mapPath);
 if (map.modules.some((m: { name: string }) => m.name === name)) {
   console.error(`Module "${name}" already exists in module-map.json.`);
   process.exit(1);

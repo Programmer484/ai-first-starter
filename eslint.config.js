@@ -3,13 +3,12 @@
 // The module-boundary rules are GENERATED from module-map.json — do not
 // hand-edit them here. Change architecture in module-map.json and the
 // boundaries update on the next lint run.
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
+import { readModuleMap } from './scripts/module-map.ts';
 
-const moduleMap = JSON.parse(readFileSync(join(import.meta.dirname, 'module-map.json'), 'utf8'));
+const moduleMap = readModuleMap();
 
 // module A may import module B  <=>  B is in A.allowedImports.
 // (A module may always import itself; boundaries skips same-element imports.)

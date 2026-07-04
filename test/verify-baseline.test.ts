@@ -31,14 +31,22 @@ describe('verify --baseline', () => {
     'classifies an untracked format failure as introduced and leaves no worktree behind',
     { timeout: 180_000 },
     () => {
+      // Delta-based leftover check: `git worktree list` is repo-global, so a
+      // concurrent session running this same suite may legitimately hold its
+      // own verify-baseline-* worktree. Only NEW entries are ours.
+      const listWorktrees = () =>
+        spawnSync('git', ['worktree', 'list'], { cwd: ROOT, encoding: 'utf8' })
+          .stdout.split('\n')
+          .filter((l) => l.includes('verify-baseline-'));
+      const before = new Set(listWorktrees());
+
       plantProbe();
       try {
         const { status, out } = run(['scripts/verify.ts', 'format', '--baseline']);
         expect(status).not.toBe(0);
         expect(out).toContain('introduced by working-tree changes');
 
-        const worktrees = spawnSync('git', ['worktree', 'list'], { cwd: ROOT, encoding: 'utf8' });
-        expect(worktrees.stdout).not.toContain('verify-baseline-');
+        expect(listWorktrees().filter((l) => !before.has(l))).toEqual([]);
       } finally {
         rmSync(PROBE, { recursive: true, force: true });
       }

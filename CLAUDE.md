@@ -70,7 +70,10 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
    — _Enforced by:_ `verify` itself — pre-commit (lefthook) and CI run the
    identical script, so local green and CI green cannot drift. (`pnpm verify
 --fast` is the affected-only inner loop; the full gate still runs in
-   pre-commit and CI.)
+   pre-commit and CI.) The framework's own self-tests (`test/**` — enforcement
+   probes and verify meta-tests) are NOT part of verify: they run via
+   `pnpm test:framework`, executed in CI only when framework files change.
+   Run them locally after editing `scripts/`, hooks, or configs.
 
 7. **Meet the coverage floor.** 80% lines, functions, branches, and
    statements on `src/modules/**`, ratcheting upward. Never lower it to make

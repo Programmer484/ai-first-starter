@@ -8,6 +8,7 @@ import { appendRun } from './edit-log.ts';
 type Step = { name: string; cmd: string; args: string[] };
 
 const steps: Step[] = [
+  { name: 'module-sync', cmd: 'node', args: ['scripts/module-sync.ts'] },
   { name: 'format', cmd: 'pnpm', args: ['exec', 'prettier', '--check', '.'] },
   { name: 'lint', cmd: 'pnpm', args: ['exec', 'eslint', '.'] },
   { name: 'typecheck', cmd: 'pnpm', args: ['exec', 'tsc', '--noEmit'] },

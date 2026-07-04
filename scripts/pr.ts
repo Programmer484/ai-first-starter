@@ -21,8 +21,8 @@ function run(cmd: string, args: string[], allowFail = false): string {
 
 // Extracts a Vercel preview URL (https://*.vercel.app) from `gh pr view
 // --json statusCheckRollup,comments` output. Checked first against each
-// check's targetUrl/detailsUrl, then against comment bodies (vercel[bot]
-// posts a preview link as a PR comment). Returns null if nothing matches.
+// check's targetUrl/detailsUrl, then against any comment body (vercel[bot]
+// posts the preview link as a PR comment). Returns null if nothing matches.
 // Pure + exported so it's testable without a real `gh` invocation.
 export function extractPreviewUrl(jsonText: string): string | null {
   const urlPattern = /https:\/\/[a-zA-Z0-9.-]*\.vercel\.app[^\s"'<>)]*/;
@@ -55,13 +55,10 @@ export function extractPreviewUrl(jsonText: string): string | null {
     for (const comment of comments) {
       if (!comment || typeof comment !== 'object') continue;
       const c = comment as Record<string, unknown>;
-      const author = c.author;
-      const login =
-        author && typeof author === 'object' ? (author as Record<string, unknown>).login : null;
       const body = c.body;
       if (typeof body === 'string') {
         const m = urlPattern.exec(body);
-        if (m && (login === 'vercel[bot]' || urlPattern.test(body))) return m[0];
+        if (m) return m[0];
       }
     }
   }
@@ -98,8 +95,12 @@ function main(): void {
     console.error('Usage: pr "<title>" [--branch <name>] [--body-file <path>] [--no-verify]');
     process.exit(2);
   }
-  const branchFlag = argv[argv.indexOf('--branch') + 1];
-  const bodyFileFlag = argv[argv.indexOf('--body-file') + 1];
+  // indexOf returns -1 when the flag is absent; [-1 + 1] would alias argv[0]
+  // (the title), so gate on the flag actually being present.
+  const flagValue = (flag: string): string | undefined =>
+    argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined;
+  const branchFlag = flagValue('--branch');
+  const bodyFileFlag = flagValue('--body-file');
   const skipVerify = argv.includes('--no-verify');
 
   if (!skipVerify) {

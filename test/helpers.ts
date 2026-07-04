@@ -11,16 +11,22 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 // One spawnSync wrapper: run a command from the repo root (override cwd/env/
 // input via opts) and fold stdout+stderr into `out` — agents read both.
+// The scripts under test read RATCHET_* vars; strip any inherited from the
+// outer environment (CI sets RATCHET_REQUIRE=1) so tests are hermetic and
+// only see the values they pass explicitly.
 export function run(
   cmd: string,
   args: string[],
   opts: { cwd?: string; env?: Record<string, string>; input?: string } = {},
 ): { status: number | null; out: string } {
+  const baseEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !k.startsWith('RATCHET_')),
+  );
   const res = spawnSync(cmd, args, {
     cwd: opts.cwd ?? ROOT,
     encoding: 'utf8',
     input: opts.input,
-    env: opts.env ? { ...process.env, ...opts.env } : process.env,
+    env: { ...baseEnv, ...opts.env },
   });
   return { status: res.status, out: (res.stdout ?? '') + (res.stderr ?? '') };
 }

@@ -54,8 +54,7 @@ describe('rule 7: coverage floor only ratchets upward', () => {
   });
 
   it('skip-passes when no baseline ref resolves', () => {
-    // Empty string overrides any RATCHET_REQUIRE inherited from CI's env.
-    const { status, out } = ratchet({ RATCHET_BASE: 'no-such-ref-zz', RATCHET_REQUIRE: '' });
+    const { status, out } = ratchet({ RATCHET_BASE: 'no-such-ref-zz' });
     expect(status).toBe(0);
     expect(out).toContain('no baseline ref, skipping');
   });

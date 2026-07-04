@@ -10,6 +10,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { appendRun } from './edit-log.ts';
+import { readModuleMap } from './module-map.ts';
 
 // `skip` steps run nothing and count as OK; the note explains why.
 type Step = { name: string; cmd?: string; args?: string[]; skip?: string };
@@ -158,9 +159,7 @@ function summarizeEslintJson(output: string): StepSummary | null {
 function apiSurface(): Record<string, number> {
   const surface: Record<string, number> = {};
   try {
-    const map = JSON.parse(readFileSync('module-map.json', 'utf8')) as {
-      modules: { name: string; path: string }[];
-    };
+    const map = readModuleMap('module-map.json');
     for (const mod of map.modules) {
       try {
         const src = readFileSync(`${mod.path}/index.ts`, 'utf8');

@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { appendRun } from './edit-log.ts';
+import { readModuleMap } from './module-map.ts';
 
 // Defaults to the real repo; SCOPE_ROOT lets tests run against a sandbox
 // (same pattern as MODULE_MAP / MODULE_SRC_ROOT in module-sync.ts).
@@ -27,7 +28,7 @@ const mapPath = ROOT + 'module-map.json';
 const outPath = ROOT + '.task/allowed-files.json';
 
 type Module = { name: string; path: string; allowedImports: string[] };
-const modules: Module[] = JSON.parse(readFileSync(mapPath, 'utf8')).modules;
+const modules = readModuleMap(mapPath).modules as Module[];
 const byName = new Map(modules.map((m) => [m.name, m]));
 
 const rawArgs = process.argv.slice(2);

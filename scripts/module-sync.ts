@@ -2,22 +2,20 @@
 // Check: src/modules/ folders and module-map.json entries match 1:1.
 // Enforces CLAUDE.md rule 4 (create modules with `pnpm new-module`) — a folder
 // made by hand, or a map entry whose folder is gone, fails verify.
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readModuleMap } from './module-map.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 // Paths default to the real repo. MODULE_MAP / MODULE_SRC_ROOT let tests run
 // this check against a doctored copy in an isolated sandbox, so they never
 // mutate the shared map or src/modules (parallel test-safe).
-const MAP_PATH = process.env.MODULE_MAP
-  ? resolve(process.env.MODULE_MAP)
-  : join(ROOT, 'module-map.json');
 const SRC_ROOT = process.env.MODULE_SRC_ROOT ? resolve(process.env.MODULE_SRC_ROOT) : ROOT;
 
 type Module = { name: string; path: string };
-const map = JSON.parse(readFileSync(MAP_PATH, 'utf8'));
+const map = readModuleMap(undefined, true);
 
 // Validate the SHAPE of module-map.json before anything derives from it, so a
 // hand-edit typo (e.g. `allowedImport`) fails here with a named, actionable
@@ -39,7 +37,7 @@ if (!Array.isArray(map.modules)) {
 
 const seenNames = new Set<string>();
 for (let i = 0; i < map.modules.length; i++) {
-  const m = map.modules[i];
+  const m = map.modules[i]!;
   const label = typeof m?.name === 'string' ? `"${m.name}"` : `at index ${i}`;
 
   for (const key of REQUIRED_KEYS) {
@@ -90,7 +88,7 @@ for (let i = 0; i < map.modules.length; i++) {
     );
   }
 
-  if ('gates' in m && !GATE_PROFILES.includes(m.gates)) {
+  if ('gates' in m && !GATE_PROFILES.includes(m.gates as string)) {
     shapeErrors.push(
       `Module ${label} has invalid \`gates\` ${JSON.stringify(m.gates)}.\n` +
         `  Fix: \`gates\` must be one of full | polish (or omit the key for full).`,

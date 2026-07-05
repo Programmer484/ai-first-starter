@@ -8,3 +8,7 @@ Per-task working state for the agent pipeline.
 
 Put a task spec here (e.g. `spec.md`) and run `pnpm scope .task/spec.md` to
 derive the scope from the modules it mentions.
+
+Everything in this directory except this README is per-task, machine-local
+state and is git-ignored — including `spec.md` and `pr-body.md`. The spec's
+durable copy lives in the PR body (feature pipeline, Stage 5), not in git.

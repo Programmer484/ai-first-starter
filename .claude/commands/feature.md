@@ -150,7 +150,7 @@ Spawn a subagent at the Stage-5 model from the table above. The plain-English
 summary is the only artifact the non-technical co-founder reads — quality
 matters here. Tell it to:
 
-1. Write `.task/pr-body.md` with exactly two sections:
+1. Write `.task/pr-body.md` with exactly three sections:
 
    ```markdown
    ## Technical summary
@@ -160,7 +160,15 @@ matters here. Tell it to:
    ## Plain-English summary
 
    <for a non-technical co-founder: what's new, using everyday analogies>
+
+   ## Spec
+
+   <the full contents of `.task/spec.md`, verbatim>
    ```
+
+   The spec section is the durable record of the task's contract —
+   `.task/spec.md` itself is git-ignored (per-task working state), so the PR
+   body is where it survives for review and history.
 
 2. Append one record to the run ledger (do NOT hand-edit `edit-log.jsonl`):
 

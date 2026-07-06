@@ -243,6 +243,14 @@ function main(): void {
   if (!target) process.exit(0); // Not a file-writing tool.
   const normalized = normalize(target, cwd);
 
+  // Scope governs in-repo files only. A target outside the repo — a relative
+  // path escaping cwd, or an absolute path elsewhere — is not something task
+  // scope covers, so allow it. Mirrors the Bash write heuristic
+  // (bashOffendingPath), which already skips out-of-repo targets. This is what
+  // lets an agent write to its sanctioned scratch dir ($CLAUDE_JOB_DIR/tmp,
+  // which resolves outside the repo) without having to widen scope every task.
+  if (normalized.startsWith('..') || isAbsolute(normalized)) process.exit(0);
+
   if (!allowConfig) {
     if (normalized.startsWith('src/')) unscopedNudge(cwd, normalized);
     process.exit(0);

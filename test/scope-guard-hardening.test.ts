@@ -146,6 +146,20 @@ describe('bash write heuristic', () => {
   });
 });
 
+describe('Edit/Write out-of-repo targets bypass scope (mirror the Bash rule)', () => {
+  it('allows an Edit whose absolute path resolves outside the repo root', () => {
+    setScope(['src/modules/other/**']);
+    // A sibling of cwd — outside the repo root, e.g. the agent's scratch dir.
+    const { status } = runHook({
+      tool_name: 'Edit',
+      tool_input: { file_path: join(cwd, '..', 'scope-guard-scratch.py') },
+      cwd,
+    });
+    expect(status).toBe(0);
+    expect(existsSync(logFile)).toBe(false); // not recorded as a scope-block
+  });
+});
+
 describe('unscoped nudge, once', () => {
   it('first unscoped src/ edit blocks and names pnpm scope; second passes', () => {
     const payload = {

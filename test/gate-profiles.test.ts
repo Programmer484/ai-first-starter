@@ -27,6 +27,19 @@ function writeMap(mutate: (map: LooseMap) => void): string {
   return mapPath;
 }
 
+const ZERO_FLOOR = { lines: 0, functions: 0, branches: 0, statements: 0 };
+
+// Expected helper output for a map: one zero-floor glob per polish module.
+// Derived, not hard-coded, so the repo map may gain/lose polish modules
+// without stranding these meta-tests.
+function expectedPolishEntries(map: LooseMap): Record<string, typeof ZERO_FLOOR> {
+  return Object.fromEntries(
+    map.modules
+      .filter((m) => m.gates === 'polish')
+      .map((m) => [`src/modules/${m.name as string}/**`, ZERO_FLOOR]),
+  );
+}
+
 describe('gates helper (polishCoverageThresholds)', () => {
   it('returns a zero-floor entry for a polish module and nothing for full/absent', () => {
     const mapPath = writeMap((map) => {
@@ -36,13 +49,19 @@ describe('gates helper (polishCoverageThresholds)', () => {
         { name: 'zz_gates_absent' },
       );
     });
-    expect(polishCoverageThresholds(mapPath)).toEqual({
-      'src/modules/zz_gates_polish/**': { lines: 0, functions: 0, branches: 0, statements: 0 },
-    });
+    const result = polishCoverageThresholds(mapPath);
+    expect(result['src/modules/zz_gates_polish/**']).toEqual(ZERO_FLOOR);
+    expect(result).not.toHaveProperty('src/modules/zz_gates_full/**');
+    expect(result).not.toHaveProperty('src/modules/zz_gates_absent/**');
+    expect(result).toEqual(
+      expectedPolishEntries(JSON.parse(readFileSync(mapPath, 'utf8')) as LooseMap),
+    );
   });
 
-  it('returns an empty object for the current repo map', () => {
-    expect(polishCoverageThresholds(join(ROOT, 'module-map.json'))).toEqual({});
+  it('returns exactly one zero-floor entry per polish module in the repo map', () => {
+    expect(polishCoverageThresholds(join(ROOT, 'module-map.json'))).toEqual(
+      expectedPolishEntries(REAL_MAP as LooseMap),
+    );
   });
 });
 
@@ -121,13 +140,15 @@ describe('vitest config wiring', () => {
       'branches',
       'statements',
     ]);
-    expect(thresholds).toMatchObject({ lines: 80, functions: 80, branches: 80, statements: 80 });
-    // Repo map has no polish modules, so no per-glob entries are appended.
+    // The floor VALUE is pinned by the ratchet, not by this meta-test —
+    // assert the shape: four numeric global floors, then exactly the
+    // per-glob polish entries generated from the repo map, nothing else.
+    const floors = Object.fromEntries(
+      ['lines', 'functions', 'branches', 'statements'].map((k) => [k, thresholds[k]]),
+    );
+    for (const v of Object.values(floors)) expect(typeof v).toBe('number');
     expect(thresholds).toEqual({
-      lines: 80,
-      functions: 80,
-      branches: 80,
-      statements: 80,
+      ...floors,
       ...polishCoverageThresholds(join(ROOT, 'module-map.json')),
     });
   });

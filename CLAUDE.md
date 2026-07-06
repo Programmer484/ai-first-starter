@@ -50,7 +50,9 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
    editing the JSON by hand is always blocked. Bare catch-all globs (`**`,
    `src/**`, …) are refused.
    — _Enforced by:_ `scope-guard` (PreToolUse hook). Deterministic for
-   Edit/Write/MultiEdit/NotebookEdit: out-of-scope targets are blocked.
+   Edit/Write/MultiEdit/NotebookEdit: out-of-scope, in-repo targets are
+   blocked; targets outside the repo root (e.g. the agent's scratch dir) are
+   allowed, since scope governs repo files only.
    Heuristic for Bash: quoted segments are stripped, then write-indicator +
    out-of-scope path detection (not bypassed by `pnpm exec`) — when unsure,
    it allows, except Bash writes to `.task/allowed-files.json` and

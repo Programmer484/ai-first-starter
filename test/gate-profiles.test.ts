@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, rmSync, mkdtempSync, mkdirSync } from 'nod
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { polishCoverageThresholds } from '../scripts/gates.ts';
+import { COVERAGE_FLOOR, moduleCoverageThresholds } from '../scripts/gates.ts';
 import { runModuleSyncWith } from './helpers.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -29,19 +29,21 @@ function writeMap(mutate: (map: LooseMap) => void): string {
 
 const ZERO_FLOOR = { lines: 0, functions: 0, branches: 0, statements: 0 };
 
-// Expected helper output for a map: one zero-floor glob per polish module.
-// Derived, not hard-coded, so the repo map may gain/lose polish modules
+// Expected helper output for a map: one glob entry per module — a zero floor
+// for polish/shell, COVERAGE_FLOOR for full (and absent, which defaults to
+// full). Derived, not hard-coded, so the repo map may gain/lose modules
 // without stranding these meta-tests.
-function expectedPolishEntries(map: LooseMap): Record<string, typeof ZERO_FLOOR> {
+function expectedEntries(map: LooseMap): Record<string, typeof COVERAGE_FLOOR> {
   return Object.fromEntries(
-    map.modules
-      .filter((m) => m.gates === 'polish')
-      .map((m) => [`src/modules/${m.name as string}/**`, ZERO_FLOOR]),
+    map.modules.map((m) => [
+      `src/modules/${m.name as string}/**`,
+      m.gates === 'polish' || m.gates === 'shell' ? ZERO_FLOOR : COVERAGE_FLOOR,
+    ]),
   );
 }
 
-describe('gates helper (polishCoverageThresholds)', () => {
-  it('returns a zero-floor entry for a polish module and nothing for full/absent', () => {
+describe('gates helper (moduleCoverageThresholds): polish profile', () => {
+  it('zeroes the floor for a polish module; full and absent keep COVERAGE_FLOOR', () => {
     const mapPath = writeMap((map) => {
       map.modules.push(
         { name: 'zz_gates_polish', gates: 'polish' },
@@ -49,18 +51,16 @@ describe('gates helper (polishCoverageThresholds)', () => {
         { name: 'zz_gates_absent' },
       );
     });
-    const result = polishCoverageThresholds(mapPath);
+    const result = moduleCoverageThresholds(mapPath);
     expect(result['src/modules/zz_gates_polish/**']).toEqual(ZERO_FLOOR);
-    expect(result).not.toHaveProperty('src/modules/zz_gates_full/**');
-    expect(result).not.toHaveProperty('src/modules/zz_gates_absent/**');
-    expect(result).toEqual(
-      expectedPolishEntries(JSON.parse(readFileSync(mapPath, 'utf8')) as LooseMap),
-    );
+    expect(result['src/modules/zz_gates_full/**']).toEqual(COVERAGE_FLOOR);
+    expect(result['src/modules/zz_gates_absent/**']).toEqual(COVERAGE_FLOOR);
+    expect(result).toEqual(expectedEntries(JSON.parse(readFileSync(mapPath, 'utf8')) as LooseMap));
   });
 
-  it('returns exactly one zero-floor entry per polish module in the repo map', () => {
-    expect(polishCoverageThresholds(join(ROOT, 'module-map.json'))).toEqual(
-      expectedPolishEntries(REAL_MAP as LooseMap),
+  it('returns one entry per module in the repo map, zero-floored only for polish/shell', () => {
+    expect(moduleCoverageThresholds(join(ROOT, 'module-map.json'))).toEqual(
+      expectedEntries(REAL_MAP as LooseMap),
     );
   });
 });
@@ -74,12 +74,12 @@ describe('module-sync gates validation', () => {
     expect(out).not.toContain('unknown key');
   });
 
-  it('rejects an invalid gates value, naming full | polish', () => {
+  it('rejects an invalid gates value, naming full | polish | shell', () => {
     const { status, out } = runModuleSyncWith((map) => {
       map.modules[0]!.gates = 'sometimes';
     });
     expect(status).toBe(1);
-    expect(out).toContain('full | polish');
+    expect(out).toContain('full | polish | shell');
   });
 });
 
@@ -118,12 +118,12 @@ describe('new-module --gates', () => {
       env: { ...process.env, MODULE_MAP: join(tmp, 'nope.json'), MODULE_SRC_ROOT: tmp },
     });
     expect(res.status).toBe(2);
-    expect((res.stderr ?? '') + (res.stdout ?? '')).toContain('full|polish');
+    expect((res.stderr ?? '') + (res.stdout ?? '')).toContain('full|polish|shell');
   });
 });
 
 describe('vitest config wiring', () => {
-  it('keeps baseline excludes and global floors first in thresholds', async () => {
+  it('keeps baseline excludes and the COVERAGE_FLOOR globals first in thresholds', async () => {
     const config = (await import('../vitest.config.ts')).default as {
       test: { coverage: { exclude: string[]; thresholds: Record<string, unknown> } };
     };
@@ -132,24 +132,19 @@ describe('vitest config wiring', () => {
       'src/modules/**/*.{test,spec}.ts',
     ]);
     const thresholds = config.test.coverage.thresholds;
-    // ratchet regex-parses the first four floors after `thresholds`; the
-    // globals must stay first and per-glob polish entries come after.
+    // The four global floors (spread from COVERAGE_FLOOR) stay first, then a
+    // per-module glob entry for EVERY module in the repo map. The floor VALUE
+    // is anchored in scripts/gates.ts (COVERAGE_FLOOR) — scripts/ratchet.ts
+    // pins that block against the baseline, not this meta-test.
     expect(Object.keys(thresholds).slice(0, 4)).toEqual([
       'lines',
       'functions',
       'branches',
       'statements',
     ]);
-    // The floor VALUE is pinned by the ratchet, not by this meta-test —
-    // assert the shape: four numeric global floors, then exactly the
-    // per-glob polish entries generated from the repo map, nothing else.
-    const floors = Object.fromEntries(
-      ['lines', 'functions', 'branches', 'statements'].map((k) => [k, thresholds[k]]),
-    );
-    for (const v of Object.values(floors)) expect(typeof v).toBe('number');
     expect(thresholds).toEqual({
-      ...floors,
-      ...polishCoverageThresholds(join(ROOT, 'module-map.json')),
+      ...COVERAGE_FLOOR,
+      ...moduleCoverageThresholds(join(ROOT, 'module-map.json')),
     });
   });
 });

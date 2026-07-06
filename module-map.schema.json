@@ -27,8 +27,8 @@
             "description": "One line: what this module is responsible for."
           },
           "gates": {
-            "enum": ["full", "polish"],
-            "description": "Gate profile. \"polish\" opts out of the coverage floor only; everything else stays on. Absent = \"full\"."
+            "enum": ["full", "polish", "shell"],
+            "description": "Gate profile. \"polish\" opts out of the coverage floor only; everything else stays on. \"shell\" also opts out of the coverage floor, and additionally caps the module's non-test source at 200 lines (module-sync) — shells must stay thin or become full modules. Absent = \"full\"."
           },
           "allowedImports": {
             "type": "array",

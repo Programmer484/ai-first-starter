@@ -49,6 +49,7 @@ function buildSteps(): Step[] {
       { name: 'test', cmd: 'pnpm', args: ['exec', 'vitest', 'run', '--coverage'] },
       { name: 'ratchet', cmd: 'node', args: ['scripts/ratchet.ts'] },
       { name: 'knip', cmd: 'pnpm', args: ['exec', 'knip'] },
+      { name: 'no-stale-refs', cmd: 'node', args: ['scripts/no-stale-refs.ts'] },
     ];
   }
   const changed = changedFiles();
@@ -70,6 +71,7 @@ function buildSteps(): Step[] {
     },
     { name: 'ratchet', skip: 'skipped in --fast' },
     { name: 'knip', skip: 'skipped in --fast' },
+    { name: 'no-stale-refs', cmd: 'node', args: ['scripts/no-stale-refs.ts'] },
   ];
 }
 

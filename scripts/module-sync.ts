@@ -2,7 +2,7 @@
 // Check: src/modules/ folders and module-map.json entries match 1:1.
 // Enforces CLAUDE.md rule 4 (create modules with `pnpm new-module`) — a folder
 // made by hand, or a map entry whose folder is gone, fails verify.
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readModuleMap } from './module-map.ts';
@@ -28,7 +28,11 @@ const KNOWN_KEYS = new Set([
   'allowedExternals',
   'gates',
 ]);
-const GATE_PROFILES = ['full', 'polish'];
+const GATE_PROFILES = ['full', 'polish', 'shell'];
+// Shell profile size cap (CLAUDE.md rule 7 shell lane): total non-test
+// source lines in a `gates: "shell"` module must stay at or under this, or
+// the shell has grown real logic and should become a full module instead.
+const SHELL_LINE_CAP = 200;
 const REQUIRED_KEYS = ['name', 'path', 'description', 'allowedImports'];
 const shapeErrors: string[] = [];
 const warnings: string[] = [];
@@ -98,7 +102,7 @@ for (let i = 0; i < map.modules.length; i++) {
   if ('gates' in m && !GATE_PROFILES.includes(m.gates as string)) {
     shapeErrors.push(
       `Module ${label} has invalid \`gates\` ${JSON.stringify(m.gates)}.\n` +
-        `  Fix: \`gates\` must be one of full | polish (or omit the key for full).`,
+        `  Fix: \`gates\` must be one of full | polish | shell (or omit the key for full).`,
     );
   }
 
@@ -194,6 +198,49 @@ for (const m of modules) {
     errors.push(
       `Module "${m.name}" is registered in module-map.json but ${m.path} does not exist.\n` +
         `  Fix: remove the entry from module-map.json, or restore the folder.`,
+    );
+  }
+}
+
+// Count "lines" the same way for every file: split on '\n', drop a trailing
+// empty segment from a final newline (so a 200-line file with a trailing
+// newline counts as 200, not 201).
+function countLines(content: string): number {
+  const parts = content.split('\n');
+  if (parts[parts.length - 1] === '') parts.pop();
+  return parts.length;
+}
+
+// Non-test source = every .ts file in the module except __tests__/** and
+// *.test.ts / *.spec.ts — mirrors vitest.config.ts's coverage include/exclude
+// so "source" means the same thing everywhere.
+function countNonTestSourceLines(dir: string): number {
+  let total = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      total += countNonTestSourceLines(full);
+    } else if (
+      entry.isFile() &&
+      /\.ts$/.test(entry.name) &&
+      !/\.(test|spec)\.ts$/.test(entry.name)
+    ) {
+      total += countLines(readFileSync(full, 'utf8'));
+    }
+  }
+  return total;
+}
+
+for (const m of map.modules) {
+  if (m.gates !== 'shell') continue;
+  const dir = join(SRC_ROOT, m.path);
+  if (!existsSync(dir)) continue; // already reported above
+  const lines = countNonTestSourceLines(dir);
+  if (lines > SHELL_LINE_CAP) {
+    errors.push(
+      `Module "${m.name}" has \`gates: "shell"\` but ${lines} non-test source lines (limit ${SHELL_LINE_CAP}).\n` +
+        `  Fix: shells must stay thin — trim it back to ${SHELL_LINE_CAP} lines or fewer, or promote it to \`gates: "full"\` if it has grown real logic.`,
     );
   }
 }

@@ -41,6 +41,9 @@ operation.
 
 **Enter when:** the user wants to iterate with feedback in the loop —
 graphics, tuning, copy, small UI things. One module, many small turns.
+Entry point: the `/feature` skill (`.claude/commands/feature.md`), which
+adds a plain-language intake/spec step and a polished ship stage on top of
+this contract.
 
 ### Agent turn contract
 
@@ -48,7 +51,7 @@ Session setup, once:
 
 - Set scope **once** per session (`pnpm scope <module>`); widening
   mid-session with `pnpm scope --add` is allowed, replacing it is not.
-- One session branch: `pair/<topic>`. All turns commit here; nothing merges
+- One session branch: `feature/<topic>`. All turns commit here; nothing merges
   until `ship`.
 
 Then, for **each user message**:

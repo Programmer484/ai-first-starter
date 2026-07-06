@@ -11,7 +11,8 @@ shell layer), the rule says so. Rules that cannot be checked live under
 Two working modes, defined in `WORKING-MODES.md`: **PRD mode** (spec-driven,
 multi-slice, one scope + full verify + PR per slice) and **pair mode**
 (iterative editing with the user in the loop, boundaries at turn
-granularity, `/pair`). **Declare your mode at session start** — "Mode: PRD"
+granularity, entered via `/feature`). **Declare your mode at session
+start** — "Mode: PRD"
 or "Mode: pair" — and follow that mode's contract.
 
 ## Rules (each enforced by a named check)

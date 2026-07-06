@@ -13,6 +13,11 @@
       "adapt": "only the header/format is framework-owned; a target's entries are its history and must never be clobbered — the file is skipped whenever it already exists"
     },
     { "path": "TESTING.md" },
+    {
+      "path": "PREFERENCES.md",
+      "skipIfExists": true,
+      "adapt": "a target's preference bullets are the user's customizations and must never be clobbered — the file is skipped whenever it already exists"
+    },
     { "path": "lefthook.yml" },
     { "path": "module-map.schema.json" },
     {

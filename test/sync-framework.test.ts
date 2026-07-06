@@ -27,6 +27,11 @@ describe('framework-manifest.json', () => {
     const debt = manifest.files.find((e) => e.path === 'DEBT.md');
     expect(debt?.skipIfExists).toBe(true);
   });
+
+  it('PREFERENCES.md is skipIfExists so user customizations are never clobbered', () => {
+    const prefs = manifest.files.find((e) => e.path === 'PREFERENCES.md');
+    expect(prefs?.skipIfExists).toBe(true);
+  });
 });
 
 describe('sync-framework', () => {

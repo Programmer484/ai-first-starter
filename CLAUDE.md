@@ -162,6 +162,9 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
   module's `internal/` only when logic is unreachable from the public API.
   (Deep-importing ANOTHER module's internals fails lint even from tests —
   there is no test exemption.) See `TESTING.md`.
+- **Read `PREFERENCES.md` at session start and honor it.** It holds the
+  user's plain-language agent-behavior preferences; `/customize` maintains
+  it (and routes enforcement-worthy requests to real checks instead).
 - **Follow your declared mode's contract** (`WORKING-MODES.md`). The pair-mode
   turn contract — smallest change per message, receipt, stop — is a working
   agreement, not a named check; the deterministic layer (scope-guard,

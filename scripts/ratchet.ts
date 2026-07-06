@@ -125,6 +125,17 @@ function gatesByName(modules: Array<{ name: string; gates?: string }>): Map<stri
 const baseMapContent = baselineContent(MAP_FILE, process.env.RATCHET_MODULE_MAP_BASE_CONTENT);
 if (baseMapContent === null) {
   noBaseline(MAP_FILE);
+} else if (baseGatesContent !== null && baselineFloors === null) {
+  // The baseline predates the COVERAGE_FLOOR anchor, i.e. it predates the
+  // per-module gate-profile system: back then a `gates` value did not drive
+  // per-module thresholds, so comparing gate ranks against it would flag the
+  // framework migration itself as a regression. Same skip posture as the
+  // coverage-floor comparison above; from the first post-migration baseline
+  // onward the comparison is live again.
+  console.log(
+    `ratchet: baseline ${GATES_FILE} has no COVERAGE_FLOOR anchor — baseline predates ` +
+      `gate profiles, skipping the gate-profile comparison`,
+  );
 } else {
   let baselineParsed: { modules?: Array<{ name: string; gates?: string }> };
   try {

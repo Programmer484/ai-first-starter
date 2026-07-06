@@ -191,6 +191,22 @@ describe('gate-profile weakening check', () => {
     expect(status).toBe(0);
   });
 
+  it('skips the gate comparison when the baseline gates.ts predates the COVERAGE_FLOOR anchor', () => {
+    // A pre-anchor baseline predates the gate-profile system entirely, so a
+    // gate "weakening" against it is the framework migration itself, not a
+    // regression — same skip posture as the coverage-floor comparison.
+    mkdirSync(tmp, { recursive: true });
+    const mapPath = join(tmp, `current-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(mapPath, mapWith({ _example: 'shell' }));
+    const { status, out } = ratchet({
+      MODULE_MAP: mapPath,
+      RATCHET_BASE_CONTENT: 'export const NOT_THE_FLOOR = 1;',
+      RATCHET_MODULE_MAP_BASE_CONTENT: mapWith({ _example: undefined }),
+    });
+    expect(status).toBe(0);
+    expect(out).toContain('skipping the gate-profile comparison');
+  });
+
   it('passes when no module weakened', () => {
     const { status, out } = ratchetWithMaps({
       current: mapWith({}),

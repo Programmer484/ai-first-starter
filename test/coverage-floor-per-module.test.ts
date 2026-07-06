@@ -91,8 +91,9 @@ describe('per-module floor enforcement (real vitest run)', () => {
     try {
       const moduleDir = join(sandbox, 'src/modules/zz_under');
       mkdirSync(join(moduleDir, '__tests__'), { recursive: true });
-      // One function with an untested branch: line/branch coverage on
-      // this file lands well under COVERAGE_FLOOR (e.g. 80%).
+      // A source file the test never imports: 0% coverage on every axis, so
+      // the probe fails under ANY positive COVERAGE_FLOOR — downstream repos
+      // sync this test and may run it with a lower floor than the template's.
       writeFileSync(
         join(moduleDir, 'index.ts'),
         [
@@ -109,10 +110,9 @@ describe('per-module floor enforcement (real vitest run)', () => {
         join(moduleDir, '__tests__/index.test.ts'),
         [
           "import { describe, it, expect } from 'vitest';",
-          "import { pick } from '../index.ts';",
-          "describe('pick', () => {",
-          "  it('covers only the hot branch', () => {",
-          "    expect(pick(true)).toBe('hot');",
+          "describe('zz_under probe', () => {",
+          "  it('runs without importing the module, leaving it at 0% coverage', () => {",
+          '    expect(1).toBe(1);',
           '  });',
           '});',
           '',

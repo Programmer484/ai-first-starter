@@ -1,6 +1,7 @@
 {
   "$comment": "Framework-owned paths synced into downstream projects by scripts/sync-framework.ts. `dir: true` copies the directory recursively. `skipIfExists: true` never overwrites an existing target file. `adapt` marks files that need per-project reconciliation after a sync.",
   "files": [
+    { "path": "framework-manifest.json" },
     {
       "path": "CLAUDE.md",
       "adapt": "contains project-specific text (coverage-floor wording, project notes) — use this as the new base and reapply the target's deltas on top"

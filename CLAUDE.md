@@ -6,6 +6,14 @@ an actionable error. Where a check is heuristic instead (the scope guard's
 shell layer), the rule says so. Rules that cannot be checked live under
 **Guidance**.
 
+## Modes
+
+Two working modes, defined in `WORKING-MODES.md`: **PRD mode** (spec-driven,
+multi-slice, one scope + full verify + PR per slice) and **pair mode**
+(iterative editing with the user in the loop, boundaries at turn
+granularity, `/pair`). **Declare your mode at session start** — "Mode: PRD"
+or "Mode: pair" — and follow that mode's contract.
+
 ## Rules (each enforced by a named check)
 
 1. **`module-map.json` is the single source of truth.** Module boundaries,
@@ -53,16 +61,23 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
    Edit/Write/MultiEdit/NotebookEdit: out-of-scope, in-repo targets are
    blocked; targets outside the repo root (e.g. the agent's scratch dir) are
    allowed, since scope governs repo files only.
-   Heuristic for Bash: quoted segments are stripped, then write-indicator +
-   out-of-scope path detection (not bypassed by `pnpm exec`) — when unsure,
-   it allows, except Bash writes to `.task/allowed-files.json` and
-   `edit-log.jsonl`, which are always blocked. With no scope
-   active, edits under `src/` get a one-time nudge (`.task/.unscoped-ack`
-   marker). Repeat blocks on the same path escalate with explicit
-   don't-work-around wording. Every scope set and every block is logged to
-   `edit-log.jsonl` (repeated blocks = scoping bug). This layer is a
-   guardrail against accidents, not adversaries — escapes exist and are
-   logged.
+   Heuristic for Bash: quoted segments are stripped, then write detection
+   scans only **real write operands** — in-repo redirect targets and the
+   arguments of write verbs (`tee`, `mv`, `cp`, `rm`, `touch`, `truncate`,
+   `sed -i`, `dd of=`, `patch`, `git apply`) — so a read-only command
+   (`grep`, `cat`, `ls`, …) can never be misclassified as a write, and the
+   detection is not bypassed by `pnpm exec`. `~` is expanded to the home
+   directory before the in-repo check. When unsure, the hook allows —
+   except Bash writes to `.task/allowed-files.json` and `edit-log.jsonl`,
+   which are always blocked. A scope whose recorded `branch` no longer
+   matches the current git branch is treated as **inactive** (you get the
+   unscoped nudge with a note saying why) rather than enforced. With no
+   scope active, edits under `src/` get a one-time nudge
+   (`.task/.unscoped-ack` marker). Repeat blocks on the same path escalate
+   with explicit don't-work-around wording. Every scope set and every block
+   is logged to `edit-log.jsonl` (repeated blocks = scoping bug). This
+   layer is a guardrail against accidents, not adversaries — escapes exist
+   and are logged.
 
 6. **Every change ends green.** `pnpm verify` must pass before shipping.
    Not sure a failure is yours? `pnpm verify --baseline` re-runs the failing
@@ -77,22 +92,33 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
    `pnpm test:framework`, executed in CI only when framework files change.
    Run them locally after editing `scripts/`, hooks, or configs.
 
-7. **Meet the coverage floor.** 80% lines, functions, branches, and
-   statements on `src/modules/**`, ratcheting upward. Never lower it to make
-   a change pass. Polish lane: a module may declare `"gates": "polish"` in
-   `module-map.json` (`pnpm new-module <name> --gates polish`) to opt out of
-   the coverage floor ONLY — lint, boundaries, typecheck, knip, and
-   scope-guard all still apply. It is for feel/render/UI-polish modules
-   where test-first has no meaningful spec; logic modules stay `full`.
-   — _Enforced by:_ coverage `thresholds` in `vitest.config.ts` (`test`
-   step); `ratchet` (verify step) fails any lowering of the four floors
-   against origin/main (with `RATCHET_REQUIRE=1` CI fails closed rather than
-   skip-passing when no baseline ref resolves; `RATCHET_BASE` /
-   `RATCHET_BASE_CONTENT` override the baseline). A CI-only Stryker mutation
-   gate (`pnpm mutation`, break 60) catches coverage met by assertion-free
-   tests. Polish modules get per-glob zero thresholds generated from the map
-   (`scripts/gates.ts`) — coverage is still measured and reported, only the
-   floor is zeroed — and the `gates` value is validated by `module-sync`.
+7. **Meet your module's coverage gate.** The floor lives in exactly one
+   place: `COVERAGE_FLOOR` in `scripts/gates.ts` (currently 80% lines,
+   functions, branches, statements); `vitest.config.ts` imports it — never
+   hand-edit thresholds there. Per-module thresholds are generated for
+   EVERY module from its `gates` profile in `module-map.json`:
+   - `full` (default) → the floor. For logic modules; tests first.
+   - `polish` → 0 (coverage still measured and reported, floor zeroed).
+     For feel/render/UI-polish modules where test-first has no meaningful
+     spec. Lint, boundaries, typecheck, knip, and scope-guard all still
+     apply.
+   - `shell` → 0, and additionally capped at **200 non-test source lines**
+     by `module-sync`. For thin pass-through modules (wiring, DOM shells).
+     Outgrow the cap → promote the module to `full`.
+
+   New modules may start at any profile (`pnpm new-module <name> --gates
+polish|shell`). Never lower the floor or weaken a gate to make a change
+   pass — but note the asymmetry the ratchet enforces is against the
+   _baseline_, so strengthening (shell→polish→full) is always fine.
+   — _Enforced by:_ coverage `thresholds` generated by `scripts/gates.ts`
+   (`test` step); `ratchet` (verify step) fails BOTH any lowering of the
+   four floors AND any gate weakening (full→polish/shell, polish→shell)
+   against origin/main (with `RATCHET_REQUIRE=1` CI fails closed rather
+   than skip-passing when no baseline ref resolves; `RATCHET_BASE` /
+   `RATCHET_BASE_CONTENT` override the baseline); the shell line cap by
+   `module-sync` (verify step); the `gates` enum by `module-sync`. A
+   CI-only Stryker mutation gate (`pnpm mutation`, break 60) catches
+   coverage met by assertion-free tests.
 
 8. **No dead code.** Remove unused exports and files rather than keeping
    them "for later".
@@ -102,6 +128,31 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
    — _Enforced by:_ `format` (verify step) + the `auto-format` PostToolUse
    hook, which formats every formattable file an agent writes.
 
+10. **No stale per-task references.** Files under `src/**` must never
+    mention `.task/` — per-task working state (specs, scopes, branch
+    names) is ephemeral and must not leak into shipped code or comments.
+    — _Enforced by:_ `no-stale-refs` (verify step).
+
+11. **Log the debt you don't fix.** Any bug or limitation discovered but
+    not fixed in the current task — including pre-existing ones found
+    mid-task — gets a `DEBT.md` entry **in the same PR**. Entries are never
+    deleted: flip `status` to `fixed` (with a `fixed-by:` line) or
+    `wontfix`, so the ledger stays a history. `DEBT.md` is seeded into
+    every scope, so logging debt never requires widening.
+    — _Enforced by:_ `debt` (verify step — format only; whether something
+    _should_ have been logged is a judgement call) + the PR body's
+    `## Debt` diff section, which surfaces new entries for reviewer
+    visibility.
+
+12. **Never push the default branch directly.** Ship with
+    `pnpm pr "<title>"` — branch, commit, push, draft PR.
+    `ALLOW_MAIN_PUSH=1` is the emergency override; it works, but the
+    override is logged to `edit-log.jsonl`.
+    — _Enforced by:_ `pre-push-guard` (lefthook pre-push) locally + host
+    branch protection (enabled by `init` via `gh api`), which also catches
+    refspec pushes (`git push origin HEAD:main` from another branch) the
+    local hook can't see.
+
 ## Guidance (no deterministic check — judgement calls)
 
 - **Prefer reuse and the smallest change.** Check for an existing helper
@@ -110,6 +161,7 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
   module's `internal/` only when logic is unreachable from the public API.
   (Deep-importing ANOTHER module's internals fails lint even from tests —
   there is no test exemption.) See `TESTING.md`.
-- **Ship with `pnpm pr "<title>"`** — branch, commit, push, draft PR. Never
-  push directly to the default branch (enforce with branch protection on the
-  host, not in this repo).
+- **Follow your declared mode's contract** (`WORKING-MODES.md`). The pair-mode
+  turn contract — smallest change per message, receipt, stop — is a working
+  agreement, not a named check; the deterministic layer (scope-guard,
+  verify) still runs underneath it.

@@ -156,10 +156,14 @@ function main(): void {
   const debtDiff = spawnSync('git', ['diff', 'origin/main', '--', 'DEBT.md'], {
     encoding: 'utf8',
   });
+  // A failed diff is not the same as an empty diff — never assert "no debt
+  // changes" when the diff could not be computed (e.g. origin/main missing).
   const debtSummary =
-    debtDiff.status === 0 && debtDiff.stdout.trim()
-      ? '```diff\n' + debtDiff.stdout.trim() + '\n```'
-      : 'No debt changes.';
+    debtDiff.status !== 0
+      ? 'Debt diff unavailable (could not diff against origin/main).'
+      : debtDiff.stdout.trim()
+        ? '```diff\n' + debtDiff.stdout.trim() + '\n```'
+        : 'No debt changes.';
   body += `\n\n## Debt\n\n${debtSummary}\n`;
 
   const prUrl = run('gh', [

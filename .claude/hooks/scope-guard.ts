@@ -177,8 +177,12 @@ function isWriteSegment(segment: string): boolean {
 function writeOperands(stripped: string): string[] {
   const operands: string[] = [];
   for (const m of stripped.matchAll(/>{1,2}\s*(\S+)/g)) {
-    const target = m[1];
-    if (!target.startsWith('&')) operands.push(target.replace(/^of=/, ''));
+    // Trim at the first control operator, same normalization the verb-token
+    // path gets below — `>file;true` must yield `file` (or the always-block
+    // on the scope file is trivially bypassed) and `>file&&next` must not
+    // yield the false operand `file&&next`.
+    const target = m[1].split(/&&|\|\||[;&|)]/)[0];
+    if (target && !target.startsWith('&')) operands.push(target.replace(/^of=/, ''));
   }
   for (const segment of segmentsOf(stripped)) {
     if (!isWriteSegment(segment)) continue;
@@ -197,7 +201,15 @@ function writeOperands(stripped: string): string[] {
   return operands;
 }
 
-function bashOffendingPath(command: string, cwd: string, globs: string[]): string | null {
+// `enforceScope: false` (no scope active, or scope drift-deactivated) still
+// checks the two always-protected files — the "never bash-writable" rule on
+// the scope file and the audit ledger must not vanish with the scope.
+function bashOffendingPath(
+  command: string,
+  cwd: string,
+  globs: string[],
+  enforceScope: boolean,
+): string | null {
   const trimmed = command.trimStart();
   if (NEVER_BLOCK.some((re) => re.test(trimmed))) return null;
   // All git commands pass except git apply (which writes arbitrary files).
@@ -212,6 +224,7 @@ function bashOffendingPath(command: string, cwd: string, globs: string[]): strin
     // The scope file and the audit ledger are never bash-writable, even
     // though .task/ is otherwise ignored and the ledger is append-target.
     if (rel === '.task/allowed-files.json' || rel === 'edit-log.jsonl') return rel;
+    if (!enforceScope) continue; // Only the protected files matter without a scope.
     if (IGNORED_DIRS.test(rel)) continue;
     if (!globs.some((g) => globToRegExp(g).test(rel))) return rel;
   }
@@ -295,14 +308,16 @@ function main(): void {
   const globs = allowConfig?.allow ?? [];
 
   if (input.tool_name === 'Bash') {
-    if (!allowConfig) {
-      if (branchNote) console.error(branchNote);
-      process.exit(0); // No scope => Bash passes untouched.
-    }
     const command = input.tool_input?.command;
     if (!command) process.exit(0);
-    const offending = bashOffendingPath(command, cwd, globs);
-    if (!offending) process.exit(0);
+    // No scope (or drift-deactivated scope): Bash passes untouched EXCEPT
+    // for the two always-protected files, which bashOffendingPath still
+    // reports when enforceScope is false.
+    const offending = bashOffendingPath(command, cwd, globs, allowConfig !== null);
+    if (!offending) {
+      if (!allowConfig && branchNote) console.error(branchNote);
+      process.exit(0);
+    }
     if (offending === '.task/allowed-files.json') {
       block(
         cwd,
@@ -352,14 +367,9 @@ function main(): void {
   // which resolves outside the repo) without having to widen scope every task.
   if (normalized.startsWith('..') || isAbsolute(normalized)) process.exit(0);
 
-  if (!allowConfig) {
-    if (normalized.startsWith('src/')) unscopedNudge(cwd, normalized, branchNote);
-    if (branchNote) console.error(branchNote);
-    process.exit(0);
-  }
-
-  // The scope file itself is never hand-editable, even though the seed allow
-  // set contains .task/** — widening scope goes through the script.
+  // The scope file itself is never hand-editable — with or without an active
+  // scope (widening goes through the script) — even though the seed allow set
+  // contains .task/**.
   if (normalized === '.task/allowed-files.json') {
     block(
       cwd,
@@ -369,6 +379,12 @@ function main(): void {
       `scope-guard: don't hand-edit .task/allowed-files.json.\n` +
         `Widen the scope with: pnpm scope --add <module|path>`,
     );
+  }
+
+  if (!allowConfig) {
+    if (normalized.startsWith('src/')) unscopedNudge(cwd, normalized, branchNote);
+    if (branchNote) console.error(branchNote);
+    process.exit(0);
   }
 
   const permitted = globs.some((g) => globToRegExp(g).test(normalized));

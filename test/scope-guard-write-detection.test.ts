@@ -148,6 +148,27 @@ describe('write operands are still caught (no regression from the narrower scan)
     expect(out).toContain("don't hand-edit .task/allowed-files.json");
   });
 
+  it('blocks a redirect to the scope file even with a control operator glued on (no ;true bypass)', () => {
+    setScope(['src/modules/other/**']);
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x >.task/allowed-files.json;true' },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+  });
+
+  it('does not misread a glued && chain as part of the redirect target (no false block)', () => {
+    setScope(['src/foo.ts']);
+    const { status } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x > src/foo.ts&&pnpm verify' },
+      cwd,
+    });
+    expect(status).toBe(0); // target is src/foo.ts (in scope), not "src/foo.ts&&pnpm"
+  });
+
   it('blocks truncating the edit-log.jsonl ledger', () => {
     setScope(['src/modules/other/**']);
     const { status, out } = runHook({
@@ -157,6 +178,64 @@ describe('write operands are still caught (no regression from the narrower scan)
     });
     expect(status).toBe(2);
     expect(out).toContain('append-only');
+  });
+});
+
+describe('protected files stay bash-blocked without an active scope', () => {
+  it('blocks a bash write to .task/allowed-files.json when no scope is active', () => {
+    // No setScope: the always-block must not vanish with the scope.
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: 'echo "{}" > .task/allowed-files.json' },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+  });
+
+  it('blocks truncating edit-log.jsonl when no scope is active', () => {
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: '> edit-log.jsonl' },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain('append-only');
+  });
+
+  it('blocks a bash write to the scope file when the scope is drift-deactivated', () => {
+    execFileSync('git', ['init', '-q', '-b', 'probe-branch'], { cwd });
+    execFileSync('git', ['config', 'user.email', 'probe@example.com'], { cwd });
+    execFileSync('git', ['config', 'user.name', 'probe'], { cwd });
+    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd });
+    setScope(['src/modules/other/**'], 'other-branch'); // drifted: HEAD is probe-branch
+
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: 'echo "{}" > .task/allowed-files.json' },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+  });
+
+  it('blocks an Edit-tool write to .task/allowed-files.json when no scope is active', () => {
+    const { status, out } = runHook({
+      tool_name: 'Edit',
+      tool_input: { file_path: join(cwd, '.task/allowed-files.json') },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+  });
+
+  it('still allows other bash writes with no scope active', () => {
+    const { status } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x > src/anything.ts' },
+      cwd,
+    });
+    expect(status).toBe(0);
   });
 });
 

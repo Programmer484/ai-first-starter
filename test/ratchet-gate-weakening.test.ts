@@ -207,6 +207,23 @@ describe('gate-profile weakening check', () => {
     expect(out).toContain('skipping the gate-profile comparison');
   });
 
+  it('skips the gate comparison when the baseline ref has no scripts/gates.ts at all', () => {
+    // git show fails for gates.ts (RATCHET_BASE points at a nonexistent ref,
+    // and RATCHET_BASE_CONTENT is NOT set) while the baseline module map IS
+    // provided — a pre-gates.ts baseline must skip, not false-flag current
+    // polish/shell modules as weakened.
+    mkdirSync(tmp, { recursive: true });
+    const mapPath = join(tmp, `current-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(mapPath, mapWith({ _example: 'shell' }));
+    const { status, out } = ratchet({
+      MODULE_MAP: mapPath,
+      RATCHET_BASE: 'no-such-ref-zz',
+      RATCHET_MODULE_MAP_BASE_CONTENT: mapWith({ _example: undefined }),
+    });
+    expect(status).toBe(0);
+    expect(out).toContain('skipping the gate-profile comparison');
+  });
+
   it('passes when no module weakened', () => {
     const { status, out } = ratchetWithMaps({
       current: mapWith({}),

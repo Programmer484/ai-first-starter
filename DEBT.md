@@ -28,3 +28,14 @@ This entry exists so the format above stays self-documenting; it is not real
 debt, which is why it is marked wontfix. Copy it (with the next free id) when
 logging real debt: one heading, one metadata line, one paragraph saying what
 is wrong, where it lives, and why it was left unfixed.
+
+## DEBT-2: Quoted redirect targets bypass the bash always-block
+
+severity: low — module: - — found: 2026-07-05 — status: open
+
+`echo x > '.task/allowed-files.json'` escapes the scope-guard's always-block
+on the scope file and the audit ledger because quote-stripping runs before
+write-operand extraction, so a quoted redirect target vanishes before it can
+be matched. Accepted for now: the Bash layer is an anti-accident heuristic,
+not an adversary boundary (CLAUDE.md rule 5), and every escape is logged to
+edit-log.jsonl; closing it would require a real shell tokenizer.

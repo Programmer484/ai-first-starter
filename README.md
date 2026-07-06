@@ -11,6 +11,15 @@ pnpm install
 pnpm verify          # lint + typecheck + test + boundaries + coverage + dead-code, one exit code
 ```
 
+Setup checklist:
+
+- **Protect the default branch.** `pnpm init:project` tries to enable GitHub
+  branch protection (PRs required) via `gh api` — non-fatal if `gh` is missing
+  or unauthenticated, so confirm it on the host. Locally, a lefthook `pre-push`
+  guard (`scripts/pre-push-guard.ts`) refuses direct pushes of the default
+  branch — ship with `pnpm pr` instead (`ALLOW_MAIN_PUSH=1` is the logged
+  escape hatch).
+
 ## The idea
 
 - **`module-map.json` is the single source of truth.** ESLint boundary rules,

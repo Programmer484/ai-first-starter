@@ -24,6 +24,7 @@
     "new-module": "node scripts/new-module.ts",
     "scope": "node scripts/scope.ts",
     "init:project": "node scripts/init.ts",
+    "debt": "node scripts/debt.ts",
     "edit-log": "node scripts/edit-log.ts",
     "pr": "node scripts/pr.ts"
   },

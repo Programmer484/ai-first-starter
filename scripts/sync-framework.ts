@@ -21,8 +21,18 @@
 //                     target carries a patch owed upstream.
 //   diverged        — neither version appears in the other's history.
 // Exits 1 on drift, 0 when in sync (expected `adapt` divergence included).
-import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -35,8 +45,61 @@ const argv = process.argv.slice(2);
 const check = argv.includes('--check');
 const dryRun = argv.includes('--dry-run') || check;
 const targetArg = argv.find((a) => !a.startsWith('--'));
+
+// Self-check: `--check` with NO target, run from a downstream repo (CI does
+// this). Reads `templateRepo` from the local manifest (SYNC_TEMPLATE_REPO
+// overrides it; SYNC_TEMPLATE_REF picks a branch), clones the template, and
+// re-runs the TEMPLATE's copy of this script against this repo — the audit
+// always uses the template's current manifest and logic. Running inside the
+// template itself is a pass: its own PRs legitimately differ from its main.
+if (!targetArg && check) {
+  const local = JSON.parse(readFileSync(join(ROOT, 'framework-manifest.json'), 'utf8')) as {
+    templateRepo?: string;
+  };
+  const repoUrl = process.env.SYNC_TEMPLATE_REPO ?? local.templateRepo;
+  if (!repoUrl) {
+    console.error(
+      'sync-check: framework-manifest.json has no `templateRepo` (and SYNC_TEMPLATE_REPO is unset).',
+    );
+    process.exit(2);
+  }
+  const norm = (u: string) => u.replace(/\.git$/, '').replace(/\/+$/, '');
+  let origin: string | null = null;
+  try {
+    origin = execFileSync('git', ['-C', ROOT, 'remote', 'get-url', 'origin'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    origin = null; // no git remote — certainly not the template
+  }
+  if (origin && norm(origin) === norm(repoUrl)) {
+    console.log('sync-check: this repo IS the template; nothing to compare. ✔');
+    process.exit(0);
+  }
+  const tmp = mkdtempSync(join(tmpdir(), 'sync-check-template-'));
+  let status: number;
+  try {
+    const cloneArgs = ['clone', '--quiet'];
+    if (process.env.SYNC_TEMPLATE_REF) cloneArgs.push('--branch', process.env.SYNC_TEMPLATE_REF);
+    execFileSync('git', [...cloneArgs, repoUrl, join(tmp, 'template')], { stdio: 'inherit' });
+    const res = spawnSync(
+      process.execPath,
+      [join(tmp, 'template', 'scripts', 'sync-framework.ts'), ROOT, '--check'],
+      { stdio: 'inherit' },
+    );
+    status = res.status ?? 1;
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+  process.exit(status);
+}
+
 if (!targetArg) {
   console.error('Usage: node scripts/sync-framework.ts <target-repo> [--dry-run|--check]');
+  console.error(
+    '       node scripts/sync-framework.ts --check    (self-audit from a downstream repo)',
+  );
   process.exit(2);
 }
 const TARGET = resolve(targetArg);

@@ -114,3 +114,85 @@ describe('sync-framework --check', () => {
     expect(fileEntry?.adapt).toBeTruthy();
   });
 });
+
+describe('sync-framework --check self-audit (no target)', () => {
+  it('names a templateRepo and syncs the enforcement workflow', () => {
+    expect((manifest as { templateRepo?: string }).templateRepo).toMatch(/^https:\/\//);
+    const wf = manifest.files.find((e) => e.path === '.github/workflows/framework-sync-check.yml');
+    expect(wf).toBeTruthy();
+  });
+
+  // Downstream repo whose manifest/scripts came from a sync; the "template"
+  // it audits against is a committed git copy of the same synced content.
+  function downstreamAndTemplate(): { downstream: string; template: string } {
+    const downstream = mkdtempSync(join(tmpdir(), 'sync-self-dst-'));
+    const template = mkdtempSync(join(tmpdir(), 'sync-self-tpl-'));
+    for (const dir of [downstream, template]) {
+      const { status } = run('node', ['scripts/sync-framework.ts', dir]);
+      expect(status).toBe(0);
+    }
+    const g = (...args: string[]) => run('git', ['-C', template, ...args]);
+    g('init');
+    g('add', '-A');
+    run('git', [
+      '-C',
+      template,
+      '-c',
+      'user.email=t@t',
+      '-c',
+      'user.name=t',
+      'commit',
+      '-m',
+      'tpl',
+    ]);
+    return { downstream, template };
+  }
+
+  it('clones the template, audits itself, and passes when in sync', () => {
+    const { downstream, template } = downstreamAndTemplate();
+    const { status, out } = run(
+      'node',
+      [join(downstream, 'scripts/sync-framework.ts'), '--check'],
+      { env: { SYNC_TEMPLATE_REPO: template } },
+    );
+    expect(status).toBe(0);
+    expect(out).toContain('in sync');
+  });
+
+  it('fails when the downstream repo has drifted', () => {
+    const { downstream, template } = downstreamAndTemplate();
+    writeFileSync(join(downstream, 'WORKING-MODES.md'), 'local edit\n');
+    const { status, out } = run(
+      'node',
+      [join(downstream, 'scripts/sync-framework.ts'), '--check'],
+      { env: { SYNC_TEMPLATE_REPO: template } },
+    );
+    expect(status).toBe(1);
+    expect(out).toContain('DRIFT');
+  });
+
+  it('is a no-op pass inside the template itself (origin matches templateRepo)', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'sync-self-tpl-origin-'));
+    const { status: syncStatus } = run('node', ['scripts/sync-framework.ts', repo]);
+    expect(syncStatus).toBe(0);
+    const url = (manifest as { templateRepo?: string }).templateRepo ?? '';
+    run('git', ['-C', repo, 'init']);
+    run('git', ['-C', repo, 'remote', 'add', 'origin', url]);
+    const { status, out } = run('node', [join(repo, 'scripts/sync-framework.ts'), '--check']);
+    expect(status).toBe(0);
+    expect(out).toContain('IS the template');
+  });
+
+  it('errors with usage when no templateRepo is available', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'sync-self-norepo-'));
+    const { status: syncStatus } = run('node', ['scripts/sync-framework.ts', repo]);
+    expect(syncStatus).toBe(0);
+    const manifestPath = join(repo, 'framework-manifest.json');
+    const m = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
+    delete m.templateRepo;
+    writeFileSync(manifestPath, JSON.stringify(m, null, 2) + '\n');
+    const { status, out } = run('node', [join(repo, 'scripts/sync-framework.ts'), '--check']);
+    expect(status).toBe(2);
+    expect(out).toContain('templateRepo');
+  });
+});

@@ -30,12 +30,15 @@
       "adapt": "coverage floor is per-project — the numbers live in scripts/gates.ts (COVERAGE_FLOOR); restore the target's floor after a sync"
     },
     { "path": "vitest.framework.config.ts" },
-    { "path": "knip.json" },
-    { "path": "eslint.config.js" },
     {
-      "path": "scripts",
-      "dir": true,
-      "adapt": "scripts/gates.ts COVERAGE_FLOOR is per-project — restore the target's floor after a sync"
+      "path": "knip.json",
+      "adapt": "entry/project globs and ignoreDependencies grow with project-specific folders (e.g. an api/ dir) — merge the target's additions instead of overwriting"
+    },
+    { "path": "eslint.config.js" },
+    { "path": "scripts", "dir": true },
+    {
+      "path": "scripts/gates.ts",
+      "adapt": "COVERAGE_FLOOR is per-project — restore the target's floor after a sync"
     },
     { "path": ".claude/hooks", "dir": true },
     { "path": ".claude/commands", "dir": true },

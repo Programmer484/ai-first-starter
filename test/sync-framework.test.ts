@@ -58,3 +58,59 @@ describe('sync-framework', () => {
     expect(status).toBe(2);
   });
 });
+
+describe('sync-framework --check', () => {
+  // A synced sandbox is in sync; mutations to it are drift or expected
+  // divergence depending on the manifest's `adapt` flag.
+  function syncedTarget(): string {
+    const target = mkdtempSync(join(tmpdir(), 'sync-check-'));
+    const { status } = run('node', ['scripts/sync-framework.ts', target]);
+    expect(status).toBe(0);
+    return target;
+  }
+
+  it('passes (exit 0) on a freshly synced target and never writes', () => {
+    const target = syncedTarget();
+    const { status, out } = run('node', ['scripts/sync-framework.ts', target, '--check']);
+    expect(status).toBe(0);
+    expect(out).toContain('in sync');
+  });
+
+  it('fails (exit 1) on non-adapt drift, falling back to "diverged" without git history', () => {
+    const target = syncedTarget();
+    writeFileSync(join(target, 'WORKING-MODES.md'), 'local edit\n');
+    const { status, out } = run('node', ['scripts/sync-framework.ts', target, '--check']);
+    expect(status).toBe(1);
+    expect(out).toContain('DRIFT (1)');
+    expect(out).toContain('WORKING-MODES.md');
+    expect(out).toContain('diverged');
+  });
+
+  it('treats adapt-file divergence as expected, not drift (exit 0)', () => {
+    const target = syncedTarget();
+    writeFileSync(join(target, 'CLAUDE.md'), 'per-project CLAUDE.md\n');
+    const { status, out } = run('node', ['scripts/sync-framework.ts', target, '--check']);
+    expect(status).toBe(0);
+    expect(out).toContain('expected per-project divergence');
+    expect(out).toContain('CLAUDE.md');
+  });
+
+  it('classifies a target whose history contains the template version as ahead', () => {
+    const target = syncedTarget();
+    const g = (...args: string[]) => run('git', ['-C', target, ...args]);
+    g('init');
+    g('add', '-A');
+    run('git', ['-C', target, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-m', 'base']);
+    writeFileSync(join(target, 'WORKING-MODES.md'), 'downstream patch\n');
+    const { status, out } = run('node', ['scripts/sync-framework.ts', target, '--check']);
+    expect(status).toBe(1);
+    expect(out).toContain('target ahead');
+  });
+
+  it("scopes the scripts dir's adapt note to gates.ts via a per-file override entry", () => {
+    const dirEntry = manifest.files.find((e) => e.path === 'scripts' && e.dir);
+    const fileEntry = manifest.files.find((e) => e.path === 'scripts/gates.ts');
+    expect(dirEntry?.adapt).toBeUndefined();
+    expect(fileEntry?.adapt).toBeTruthy();
+  });
+});

@@ -11,6 +11,15 @@ pnpm install
 pnpm verify          # lint + typecheck + test + boundaries + coverage + dead-code, one exit code
 ```
 
+Setup checklist:
+
+- **Protect the default branch.** `pnpm init:project` tries to enable GitHub
+  branch protection (PRs required) via `gh api` — non-fatal if `gh` is missing
+  or unauthenticated, so confirm it on the host. Locally, a lefthook `pre-push`
+  guard (`scripts/pre-push-guard.ts`) refuses direct pushes of the default
+  branch — ship with `pnpm pr` instead (`ALLOW_MAIN_PUSH=1` is the logged
+  escape hatch).
+
 ## The idea
 
 - **`module-map.json` is the single source of truth.** ESLint boundary rules,
@@ -44,4 +53,28 @@ Run `/feature <description>` in Claude Code, or follow the pipeline in
 verify --agent → PR**. Agents should iterate with `pnpm verify --agent` —
 same checks, bounded file-grouped output, machine-readable snapshot.
 
-See `CLAUDE.md` for the rules and `TESTING.md` for the test playbook.
+## Documentation map
+
+This README is the entry point; each doc below owns one concern. Agents read
+the first group; humans supervising agents read the second.
+
+**For agents (loaded or referenced every session):**
+
+| Doc                      | Owns                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE.md`              | The rules. Every rule maps to a named deterministic check; break it and verify or a hook fails with an actionable error.                                      |
+| `WORKING-MODES.md`       | The two working modes — PRD (spec-driven, one scope + verify + PR per slice) and pair (turn-granularity iteration via `/feature`) — and each mode's contract. |
+| `TESTING.md`             | The test playbook: what to test, through which surface, per gate profile.                                                                                     |
+| `PREFERENCES.md`         | The user's plain-language agent-behavior preferences. Read at session start; maintained via `/customize`.                                                     |
+| `module-map.schema.json` | The shape of `module-map.json` — modules, `allowedImports`, `allowedExternals`, `gates`.                                                                      |
+
+**For the human operating the system:**
+
+| Doc             | Owns                                                                                                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPERVISOR.md` | Day-to-day operation: the observable artifacts (ledger, scope, verify snapshot), healthy-vs-unhealthy signals, how to steer agents, the 5-minute session review.                                    |
+| `FRAMEWORK.md`  | Changing the framework itself (`scripts/`, hooks, configs): invariants that must not change, the `test:framework` rule, triaging framework test failures, agent briefing template, merge checklist. |
+| `DEBT.md`       | The deferred-work ledger. Append-only history — entries flip status (`fixed`/`wontfix`), never disappear.                                                                                           |
+
+`framework-manifest.json` defines which of these files are framework-owned
+and sync to downstream projects (`scripts/sync-framework.ts`).

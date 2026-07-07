@@ -4,7 +4,7 @@
 // docs pick it up — module-map.json is the single source of truth.
 //
 // Usage: pnpm new-module <name> [--desc "what it does"] [--imports a,b]
-//                                [--externals a,b | --pure] [--gates full|polish]
+//                                [--externals a,b | --pure] [--gates full|polish|shell]
 //
 // --externals a,b  restricts the module to importing ONLY packages a and b
 //                  (node: builtins and cross-module imports stay allowed).
@@ -37,8 +37,8 @@ function hasFlag(n: string): boolean {
 }
 const description = flag('--desc') ?? `TODO: describe the ${name} module.`;
 const gates = flag('--gates') ?? 'full';
-if (gates !== 'full' && gates !== 'polish') {
-  console.error(`Invalid --gates "${gates}". Usage: new-module <name> [--gates full|polish]`);
+if (gates !== 'full' && gates !== 'polish' && gates !== 'shell') {
+  console.error(`Invalid --gates "${gates}". Usage: new-module <name> [--gates full|polish|shell]`);
   process.exit(2);
 }
 const allowedImports = (flag('--imports') ?? '')
@@ -135,12 +135,18 @@ ${
 To change which external packages this module may import, edit
 \`allowedExternals\` for \`${name}\` in \`module-map.json\` (omit the key for
 unrestricted). \`node:\` builtins and cross-module imports are always allowed.
-${gates === 'polish' ? '\nPolish lane: this module is exempt from the coverage floor only. Lint,\nboundaries, typecheck, and knip still apply.\n' : ''}`,
+${
+  gates === 'polish'
+    ? '\nPolish lane: this module is exempt from the coverage floor only. Lint,\nboundaries, typecheck, and knip still apply.\n'
+    : gates === 'shell'
+      ? '\nShell lane: this module is exempt from the coverage floor, and its non-test\nsource is capped at 200 lines by module-sync — stay thin, or promote to\n`gates: "full"` once it grows real logic.\n'
+      : ''
+}`,
 );
 
 const entry: (typeof map.modules)[number] = { name, path: relPath, description, allowedImports };
 if (externalsRestricted) entry.allowedExternals = allowedExternals;
-if (gates === 'polish') entry.gates = gates;
+if (gates !== 'full') entry.gates = gates;
 map.modules.push(entry);
 map.modules.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
 writeFileSync(mapPath, JSON.stringify(map, null, 2) + '\n');

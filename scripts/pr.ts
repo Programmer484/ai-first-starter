@@ -148,7 +148,23 @@ function main(): void {
 
   const defaultBody = `Automated PR from \`scripts/pr.ts\`.\n\n_Verify ran green before push._`;
   const bodyFilePath = bodyFileFlag ?? (existsSync('.task/pr-body.md') ? '.task/pr-body.md' : null);
-  const body = bodyFilePath ? readFileSync(bodyFilePath, 'utf8') : defaultBody;
+  let body = bodyFilePath ? readFileSync(bodyFilePath, 'utf8') : defaultBody;
+
+  // Tech-debt visibility: surface DEBT.md changes in the PR body so reviewers
+  // see logged debt without opening the diff. Non-fatal — a missing remote or
+  // failed git call must not block the PR.
+  const debtDiff = spawnSync('git', ['diff', 'origin/main', '--', 'DEBT.md'], {
+    encoding: 'utf8',
+  });
+  // A failed diff is not the same as an empty diff — never assert "no debt
+  // changes" when the diff could not be computed (e.g. origin/main missing).
+  const debtSummary =
+    debtDiff.status !== 0
+      ? 'Debt diff unavailable (could not diff against origin/main).'
+      : debtDiff.stdout.trim()
+        ? '```diff\n' + debtDiff.stdout.trim() + '\n```'
+        : 'No debt changes.';
+  body += `\n\n## Debt\n\n${debtSummary}\n`;
 
   const prUrl = run('gh', [
     'pr',

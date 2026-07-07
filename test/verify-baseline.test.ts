@@ -62,7 +62,8 @@ describe('the --baseline hint line', () => {
   it('a passing verify prints no hint', { timeout: 60_000 }, () => {
     // ratchet, not format: `prettier --check .` sees sibling suites'
     // transient zz_* probe files under parallel workers; ratchet only reads
-    // vitest.config.ts + git refs, so it passes regardless of sibling state.
+    // scripts/gates.ts + module-map.json + git refs, so it passes regardless
+    // of sibling state.
     const { status, out } = run('node', ['scripts/verify.ts', 'ratchet']);
     expect(status).toBe(0);
     expect(out).not.toContain('pnpm verify --baseline');

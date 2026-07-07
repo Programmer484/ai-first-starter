@@ -1,0 +1,49 @@
+{
+  "$comment": "Framework-owned paths synced into downstream projects by scripts/sync-framework.ts. `dir: true` copies the directory recursively. `skipIfExists: true` never overwrites an existing target file. `adapt` marks files that need per-project reconciliation after a sync. `templateRepo` lets a downstream repo self-audit: `node scripts/sync-framework.ts --check` clones it and compares.",
+  "templateRepo": "https://github.com/Sartonio/ai-first-starter",
+  "files": [
+    { "path": "framework-manifest.json" },
+    { "path": ".github/workflows/framework-sync-check.yml" },
+    {
+      "path": "CLAUDE.md",
+      "adapt": "contains project-specific text (coverage-floor wording, project notes) — use this as the new base and reapply the target's deltas on top"
+    },
+    { "path": "WORKING-MODES.md" },
+    {
+      "path": "DEBT.md",
+      "skipIfExists": true,
+      "adapt": "only the header/format is framework-owned; a target's entries are its history and must never be clobbered — the file is skipped whenever it already exists"
+    },
+    { "path": "TESTING.md" },
+    { "path": "FRAMEWORK.md" },
+    {
+      "path": "SUPERVISOR.md",
+      "adapt": "the jq one-liners and signal tables are generic, but §0's doc/tool routing may reference project-specific skills — reconcile if the target has customized its commands"
+    },
+    {
+      "path": "PREFERENCES.md",
+      "skipIfExists": true,
+      "adapt": "a target's preference bullets are the user's customizations and must never be clobbered — the file is skipped whenever it already exists"
+    },
+    { "path": "lefthook.yml" },
+    { "path": "module-map.schema.json" },
+    {
+      "path": "vitest.config.ts",
+      "adapt": "coverage floor is per-project — the numbers live in scripts/gates.ts (COVERAGE_FLOOR); restore the target's floor after a sync"
+    },
+    { "path": "vitest.framework.config.ts" },
+    {
+      "path": "knip.json",
+      "adapt": "entry/project globs and ignoreDependencies grow with project-specific folders (e.g. an api/ dir) — merge the target's additions instead of overwriting"
+    },
+    { "path": "eslint.config.js" },
+    { "path": "scripts", "dir": true },
+    {
+      "path": "scripts/gates.ts",
+      "adapt": "COVERAGE_FLOOR is per-project — restore the target's floor after a sync"
+    },
+    { "path": ".claude/hooks", "dir": true },
+    { "path": ".claude/commands", "dir": true },
+    { "path": "test", "dir": true }
+  ]
+}

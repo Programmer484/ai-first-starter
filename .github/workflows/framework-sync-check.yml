@@ -1,0 +1,32 @@
+# Framework sync enforcement (framework-owned; synced from the template).
+# Clones the template named in framework-manifest.json (`templateRepo`) and
+# audits this repo against it: `adapt` files may diverge, anything else is
+# drift and fails the job. Runs on PRs, pushes to main, and a weekly cron —
+# drift can appear without any local commit when the template moves ahead.
+# In the template repo itself the check is a no-op pass.
+name: framework-sync-check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  sync-check:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history so drift direction (target ahead vs behind) resolves;
+      # a shallow checkout would degrade every verdict to "diverged".
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Dependency-free: sync-framework.ts is plain node + git.
+      - name: Framework sync check
+        run: node scripts/sync-framework.ts --check

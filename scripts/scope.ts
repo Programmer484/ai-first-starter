@@ -40,7 +40,8 @@ if (args.length === 0) {
   process.exit(2);
 }
 
-const SEEDED = ['.task/**', 'edit-log.jsonl'];
+// DEBT.md is seeded so logging tech debt never requires widening scope.
+const SEEDED = ['.task/**', 'edit-log.jsonl', 'DEBT.md'];
 const CATCH_ALLS = new Set(['**', '*', 'src/**', 'src/*']);
 const allow = new Set<string>(SEEDED);
 const fallbacks: string[] = [];

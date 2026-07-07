@@ -20,3 +20,13 @@ pre-commit:
       # is the agent inner loop (changed-files lint/format, no coverage,
       # ratchet/knip skipped); never substitute it for the pre-commit run.
       run: pnpm verify
+
+# Pre-push refuses pushing the default branch — ship with `pnpm pr` (branch,
+# commit, draft PR) instead. ALLOW_MAIN_PUSH=1 is the escape hatch; the
+# override is logged to edit-log.jsonl. The guard checks the branch you are
+# ON; host-side branch protection (scripts/init.ts enables it via `gh`)
+# backs it up server-side against refspec pushes like `push origin HEAD:main`.
+pre-push:
+  commands:
+    guard-default-branch:
+      run: node scripts/pre-push-guard.ts

@@ -239,6 +239,93 @@ describe('protected files stay bash-blocked without an active scope', () => {
   });
 });
 
+describe('quoted write operands cannot bypass the always-block (DEBT-5)', () => {
+  it('blocks a single-quoted redirect to the scope file', () => {
+    setScope(['src/modules/other/**']);
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: "echo x > '.task/allowed-files.json'" },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+  });
+
+  it('blocks a double-quoted redirect to the scope file', () => {
+    setScope(['src/modules/other/**']);
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x > ".task/allowed-files.json"' },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+  });
+
+  it('blocks a quoted tee target for the edit-log ledger', () => {
+    setScope(['src/modules/other/**']);
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: "echo x | tee 'edit-log.jsonl'" },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain('append-only');
+  });
+
+  it("blocks a mixed part-quoted redirect target (>'.task/'allowed-files.json)", () => {
+    setScope(['src/modules/other/**']);
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: "echo x >'.task/'allowed-files.json" },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+  });
+
+  it('blocks a quoted redirect to the scope file even with no scope active', () => {
+    // No setScope: the always-block must not vanish with the scope.
+    const { status, out } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: "echo x > '.task/allowed-files.json'" },
+      cwd,
+    });
+    expect(status).toBe(2);
+    expect(out).toContain("don't hand-edit .task/allowed-files.json");
+  });
+
+  it('still allows reading the scope file unquoted (cat)', () => {
+    setScope(['src/modules/other/**']);
+    const { status } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: 'cat .task/allowed-files.json' },
+      cwd,
+    });
+    expect(status).toBe(0);
+  });
+
+  it('still allows grep with a quoted scope-file argument', () => {
+    setScope(['src/modules/other/**']);
+    const { status } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: "grep foo '.task/allowed-files.json'" },
+      cwd,
+    });
+    expect(status).toBe(0);
+  });
+
+  it('still allows a quoted redirect to a non-protected out-of-scope file (heuristic layer unchanged)', () => {
+    setScope(['src/modules/other/**']);
+    const { status } = runHook({
+      tool_name: 'Bash',
+      tool_input: { command: "echo x > 'src/out-of-scope.ts'" },
+      cwd,
+    });
+    expect(status).toBe(0); // general layer still quote-strips; only the always-block sees through quotes
+  });
+});
+
 describe('branch drift: a scope recorded for another branch is treated as inactive', () => {
   it('falls through to the unscoped nudge (not a scope-block) when HEAD differs from the recorded branch', () => {
     execFileSync('git', ['init', '-q', '-b', 'probe-branch'], { cwd });

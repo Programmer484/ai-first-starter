@@ -215,6 +215,21 @@ function bashOffendingPath(
   // All git commands pass except git apply (which writes arbitrary files).
   if (/^git\s/.test(trimmed) && !/^git\s+apply\b/.test(trimmed)) return null;
 
+  // Always-block first, against a quote-RESOLVED copy (quotes replaced by
+  // their inner content, not deleted). Quote-stripping below erases quoted
+  // write targets before they can match, so `echo x > '.task/allowed-files.json'`
+  // used to escape the always-block (DEBT-5). Resolving quotes keeps the
+  // target visible while still confining the check to real write operands —
+  // read-only commands (`cat`, `grep foo '.task/allowed-files.json'`) produce
+  // no write operands and remain unblockable. Conservative by design: a
+  // protected path quoted as DATA inside a genuine write operand may still
+  // match, which is an acceptable false positive for these two files only.
+  const quoteResolved = command.replace(/'([^']*)'/g, '$1').replace(/"([^"]*)"/g, '$1');
+  for (const token of writeOperands(quoteResolved)) {
+    const rel = resolveRepoRelative(token, cwd);
+    if (rel === '.task/allowed-files.json' || rel === 'edit-log.jsonl') return rel;
+  }
+
   // Strip quoted segments first so operators/paths inside strings don't count.
   const stripped = command.replace(/'[^']*'/g, ' ').replace(/"[^"]*"/g, ' ');
 

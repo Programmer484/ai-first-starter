@@ -31,7 +31,8 @@ is wrong, where it lives, and why it was left unfixed.
 
 ## DEBT-2: Quoted redirect targets bypass the bash always-block
 
-severity: low — module: - — found: 2026-07-05 — status: open
+severity: low — module: - — found: 2026-07-05 — status: fixed
+fixed-by: life-game DEBT-5 patch upstreamed 2026-07-07 (quote-resolved always-block pass in scope-guard.ts)
 
 `echo x > '.task/allowed-files.json'` escapes the scope-guard's always-block
 on the scope file and the audit ledger because quote-stripping runs before

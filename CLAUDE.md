@@ -70,7 +70,9 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
    detection is not bypassed by `pnpm exec`. `~` is expanded to the home
    directory before the in-repo check. When unsure, the hook allows —
    except Bash writes to `.task/allowed-files.json` and `edit-log.jsonl`,
-   which are always blocked. A scope whose recorded `branch` no longer
+   which are always blocked (this always-block runs first against a
+   quote-RESOLVED copy of the command, so quoting the path doesn't slip
+   past it). A scope whose recorded `branch` no longer
    matches the current git branch is treated as **inactive** (you get the
    unscoped nudge with a note saying why) rather than enforced. With no
    scope active, edits under `src/` get a one-time nudge

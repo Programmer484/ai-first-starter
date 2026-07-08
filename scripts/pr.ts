@@ -5,7 +5,7 @@
 //
 // Usage: pnpm pr "feat: add foo module" [--branch feat/foo] [--body-file path] [--no-verify]
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { appendRun } from './edit-log.ts';
 
@@ -88,6 +88,37 @@ function pollForPreviewUrl(branch: string): string | null {
   return null;
 }
 
+// Picks the branch name when `pnpm pr` runs from the default branch.
+// Priority: explicit --branch flag, then `.task/branch` — but ONLY when it is
+// fresh — then a slug of the PR title. `.task/branch` is ephemeral state from
+// `pnpm scope`; it lingers after a task ships, so a bare "file exists" check
+// silently reused dead tasks' branch names (observed: a docs PR landing on a
+// merged task's `feature/claude-md`). Fresh means BOTH:
+//   1. it matches the `branch` field in `.task/allowed-files.json` — the same
+//      scope run wrote both, so an orphaned/hand-made file never qualifies;
+//   2. no local or remote branch of that name already exists — an existing
+//      branch means that scope already shipped a PR, i.e. the state is stale.
+// Pure + exported so the selection logic is testable without git or a repo.
+export function chooseBranch(opts: {
+  branchFlag: string | undefined;
+  title: string;
+  taskBranch: string;
+  scopeBranch: string;
+  branchExists: boolean;
+}): string {
+  const { branchFlag, title, taskBranch, scopeBranch, branchExists } = opts;
+  if (branchFlag) return branchFlag;
+  if (taskBranch && taskBranch === scopeBranch && !branchExists) return taskBranch;
+  return (
+    'feat/' +
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40)
+  );
+}
+
 function main(): void {
   const argv = process.argv.slice(2);
   const title = argv.find((a) => !a.startsWith('--'));
@@ -125,17 +156,29 @@ function main(): void {
   let branch = current;
   if (current === defaultBranch || current === '') {
     const branchFile = '.task/branch';
-    const branchFromFile = existsSync(branchFile) ? readFileSync(branchFile, 'utf8').trim() : '';
-    branch =
-      branchFlag ??
-      (branchFromFile ||
-        'feat/' +
-          title
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '')
-            .slice(0, 40));
+    const taskBranch = existsSync(branchFile) ? readFileSync(branchFile, 'utf8').trim() : '';
+    // Freshness cross-check inputs (see chooseBranch). Both git probes are
+    // allowed to fail — a missing ref just means the branch doesn't exist.
+    let scopeBranch = '';
+    if (existsSync('.task/allowed-files.json')) {
+      try {
+        const scope: unknown = JSON.parse(readFileSync('.task/allowed-files.json', 'utf8'));
+        const b = (scope as Record<string, unknown>).branch;
+        if (typeof b === 'string') scopeBranch = b;
+      } catch {
+        // Unreadable scope file = no corroboration; taskBranch stays unused.
+      }
+    }
+    const branchExists =
+      taskBranch !== '' &&
+      ['refs/heads/', 'refs/remotes/origin/'].some(
+        (p) => spawnSync('git', ['rev-parse', '--verify', '--quiet', p + taskBranch]).status === 0,
+      );
+    branch = chooseBranch({ branchFlag, title, taskBranch, scopeBranch, branchExists });
     run('git', ['switch', '-c', branch]);
+    // Consume-once: the branch file has done its job; deleting it stops the
+    // NEXT task (back on the default branch) from silently reusing it.
+    if (branch === taskBranch) rmSync(branchFile, { force: true });
     console.log(`Created branch ${branch}`);
   }
 

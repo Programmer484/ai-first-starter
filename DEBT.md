@@ -40,3 +40,16 @@ write-operand extraction, so a quoted redirect target vanishes before it can
 be matched. Accepted for now: the Bash layer is an anti-accident heuristic,
 not an adversary boundary (CLAUDE.md rule 5), and every escape is logged to
 edit-log.jsonl; closing it would require a real shell tokenizer.
+
+## DEBT-3: scope.ts slugs non-markdown file content into branch names
+
+severity: low — module: - — found: 2026-07-07 — status: open
+
+`slugSourceFor` in scripts/scope.ts treats ANY existing file argument as a
+spec and slugs its first "heading" or non-empty line into the branch name.
+Its heading regex (`/^#+\s*\S/`) also matches a shebang, so
+`pnpm scope scripts/pr.ts` yields `feature/usr-bin-env-node` — a meaningless
+branch derived from `#!/usr/bin/env node`. Fix: only mine `.md` files for a
+heading (fall back to the raw args otherwise), with a probe in
+test/scope-resolver.test.ts. Not fixed here to keep the pr.ts branch-selection
+change single-purpose.

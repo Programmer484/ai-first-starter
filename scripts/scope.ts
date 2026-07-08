@@ -65,10 +65,12 @@ function slugify(text: string): string {
 
 // Prefer a spec file's first markdown heading (or first non-empty line) over
 // the raw args, so `.task/spec.md` yields a readable branch name instead of
-// "task-spec-md".
+// "task-spec-md". Only `.md` files are mined for content: a non-markdown file
+// (e.g. `scripts/pr.ts`) would otherwise slug its shebang or first line into
+// the branch, so those fall through to the raw args below.
 function slugSourceFor(specArgs: string[]): string {
   const first = specArgs[0];
-  if (first && !byName.has(first) && existsSync(first)) {
+  if (first && !byName.has(first) && first.endsWith('.md') && existsSync(first)) {
     const text = readFileSync(first, 'utf8');
     const lines = text.split('\n');
     const heading = lines.find((l) => /^#+\s*\S/.test(l.trim()));

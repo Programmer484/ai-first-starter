@@ -121,6 +121,15 @@ describe('scope derives a branch name', () => {
     expect(payload.branch).toBe('feature/add-widget-support');
   });
 
+  it('slugs from the arg path, not file content, for a non-.md file with a shebang', () => {
+    // DEBT-3: `/^#+\s*\S/` matched a shebang, so a .ts arg yielded a branch
+    // slugged from `#!/usr/bin/env node`. Only .md files are mined now.
+    writeFileSync(join(root, 'pr.ts'), '#!/usr/bin/env node\nconsole.log(1);\n');
+    expect(scope('pr.ts').status).toBe(0);
+    const payload = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(payload.branch).toBe('feature/pr-ts');
+  });
+
   it('falls back to the first non-empty line when a spec file has no heading', () => {
     writeFileSync(join(root, 'spec.md'), '\n  Fix login bug for real users  \nmore detail\n');
     expect(scope('spec.md').status).toBe(0);

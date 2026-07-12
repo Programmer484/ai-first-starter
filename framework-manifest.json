@@ -15,7 +15,10 @@
       "adapt": "only the header/format is framework-owned; a target's entries are its history and must never be clobbered — the file is skipped whenever it already exists"
     },
     { "path": "TESTING.md" },
-    { "path": "FRAMEWORK.md" },
+    {
+      "path": "FRAMEWORK.md",
+      "$comment": "Fully framework-owned — no `adapt` note because downstream customization is not supported. A sync silently overwrites it; downstream-specific guidance belongs in the target's own docs (README/PREFERENCES.md), never here."
+    },
     {
       "path": "SUPERVISOR.md",
       "adapt": "the jq one-liners and signal tables are generic, but §0's doc/tool routing may reference project-specific skills — reconcile if the target has customized its commands"

@@ -283,6 +283,14 @@ framework improvements pulled into it. The sync runs FROM the template,
 copying framework-owned paths (per `framework-manifest.json`) INTO your
 target repo. It never deletes target files and never touches app code.
 
+**`FRAMEWORK.md`, `SUPERVISOR.md`, `WORKING-MODES.md`, and `TESTING.md` are
+fully framework-owned** — a sync silently overwrites them. Do NOT customize
+them in a downstream repo; any local prose edit is lost on the next sync.
+Downstream-specific guidance belongs in the target's own docs (its `README`
+or `PREFERENCES.md`), never in these files. (`SUPERVISOR.md` carries an
+`adapt` note only so its doc/tool routing can be re-pointed at the target's
+skills after a sync — that reconciliation, not free-form customization.)
+
 Follow these steps in order:
 
 1. **Dry-run from the template.** In the TEMPLATE repo, on a clean,
@@ -314,6 +322,12 @@ Follow these steps in order:
    - Any other file in the `NEEDS PER-PROJECT ADAPTATION:` list — reconcile
      per its `adapt` note.
 
+   If a flagged file's only differences were the target's per-project deltas,
+   its net `git diff` after you reapply them is EMPTY — the sync brought no
+   new framework content for that file this round. That's expected, not a
+   mistake: the flag marks files that _may_ need reconciliation, not files
+   that always changed.
+
    > **⚠️ The #1 failure mode is shipping a sync without step 3.**
    > `pnpm verify` will NOT catch a silently raised coverage floor or
    > clobbered knip globs — a raised floor still passes verify (it's
@@ -332,6 +346,10 @@ Follow these steps in order:
    ```bash
    pnpm pr "framework: sync <summary> from template"
    ```
+
+   `pnpm pr` re-runs the full `pnpm verify` before it pushes, so expect this
+   step to take a minute or two even though you already ran the gate in
+   step 4.
 
 Note: `package.json` is not framework-synced (it is not in the manifest).
 A downstream repo must add the `"sync-framework": "node

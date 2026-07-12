@@ -41,6 +41,11 @@ Two consequences:
   a `framework-manifest.json` entry, and — if its changes should trigger
   self-tests on PRs — the path-filter regex in `.github/workflows/ci.yml`
   (see §5).
+- **`package.json` is NOT in the manifest** — it never syncs downstream. A
+  new framework script alias (e.g. `sync-framework`) added here does not
+  propagate; each downstream repo adds the alias by hand once (or invokes
+  `node scripts/sync-framework.ts` directly, since `scripts/` IS synced).
+  See §8.
 
 ---
 
@@ -267,3 +272,68 @@ Before merging any framework PR:
       the task.
 - [ ] Change is framework-generic (safe to sync downstream); `adapt` notes
       updated if the reconciliation story changed.
+
+---
+
+## 8. Pulling framework updates (downstream sync)
+
+This section is for the reverse direction: you maintain a **downstream**
+repo (one that was instantiated from this template) and want the latest
+framework improvements pulled into it. The sync runs FROM the template,
+copying framework-owned paths (per `framework-manifest.json`) INTO your
+target repo. It never deletes target files and never touches app code.
+
+Follow these steps in order:
+
+1. **Dry-run from the template.** In the TEMPLATE repo, on a clean,
+   up-to-date `main`:
+
+   ```bash
+   pnpm sync-framework <path-to-target> --dry-run
+   ```
+
+   Read the `added` / `updated` / `skipped` summary and the
+   `NEEDS PER-PROJECT ADAPTATION:` list. Nothing is written yet.
+
+2. **Run it for real.** Same command, without `--dry-run`:
+
+   ```bash
+   pnpm sync-framework <path-to-target>
+   ```
+
+3. **Reconcile every adapt-flagged file in the TARGET.** The sync
+   overwrites these with the template's versions, so the target's
+   per-project deltas must be restored by hand. Use `git diff` in the
+   target to see exactly what the sync changed, then:
+   - **`scripts/gates.ts`** — restore the target's `COVERAGE_FLOOR`. Never
+     let a sync raise OR lower the floor silently.
+   - **`CLAUDE.md`** — reapply the target's project-specific passages on top
+     of the template's new base.
+   - **`knip.json`** — MERGE: keep the target's extra entry/project globs
+     and `ignoreDependencies` AND take the template's additions.
+   - Any other file in the `NEEDS PER-PROJECT ADAPTATION:` list — reconcile
+     per its `adapt` note.
+
+   > **⚠️ The #1 failure mode is shipping a sync without step 3.**
+   > `pnpm verify` will NOT catch a silently raised coverage floor or
+   > clobbered knip globs — a raised floor still passes verify (it's
+   > stricter, not broken), and lost knip globs surface as unrelated
+   > failures later. Do the reconciliation by hand, every time.
+
+4. **Gate in the TARGET.** Both must be green:
+
+   ```bash
+   pnpm test:framework   # exercises the synced enforcement layer
+   pnpm verify           # the app-code gate
+   ```
+
+5. **Ship from the TARGET.** Never push `main`:
+
+   ```bash
+   pnpm pr "framework: sync <summary> from template"
+   ```
+
+Note: `package.json` is not framework-synced (it is not in the manifest).
+A downstream repo must add the `"sync-framework": "node
+scripts/sync-framework.ts"` script alias once by hand — or just invoke
+`node scripts/sync-framework.ts <target>` directly, which IS synced.

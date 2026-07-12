@@ -43,6 +43,7 @@ Setup checklist:
 | `pnpm verify --agent`             | Same gate, bounded failure summary + `.task/last-verify.json`       |
 | `pnpm verify --baseline`          | On failure, classify each step as pre-existing vs introduced        |
 | `pnpm pr "<title>"`               | Branch, commit, push, open a draft PR (runs verify first)           |
+| `pnpm sync-framework <target>`    | Pull framework updates into a downstream repo (see FRAMEWORK.md §8) |
 | `pnpm edit-log`                   | Print the last 20 run-ledger records from `edit-log.jsonl`          |
 | `pnpm init:project <name>`        | Re-instantiate this template for a new project                      |
 
@@ -70,11 +71,11 @@ the first group; humans supervising agents read the second.
 
 **For the human operating the system:**
 
-| Doc             | Owns                                                                                                                                                                                                |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SUPERVISOR.md` | Day-to-day operation: the observable artifacts (ledger, scope, verify snapshot), healthy-vs-unhealthy signals, how to steer agents, the 5-minute session review.                                    |
-| `FRAMEWORK.md`  | Changing the framework itself (`scripts/`, hooks, configs): invariants that must not change, the `test:framework` rule, triaging framework test failures, agent briefing template, merge checklist. |
-| `DEBT.md`       | The deferred-work ledger. Append-only history — entries flip status (`fixed`/`wontfix`), never disappear.                                                                                           |
+| Doc             | Owns                                                                                                                                                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SUPERVISOR.md` | Day-to-day operation: the observable artifacts (ledger, scope, verify snapshot), healthy-vs-unhealthy signals, how to steer agents, the 5-minute session review.                                                                                                   |
+| `FRAMEWORK.md`  | Changing the framework itself (`scripts/`, hooks, configs): invariants that must not change, the `test:framework` rule, triaging framework test failures, agent briefing template, merge checklist, and the downstream-sync procedure (§8, `pnpm sync-framework`). |
+| `DEBT.md`       | The deferred-work ledger. Append-only history — entries flip status (`fixed`/`wontfix`), never disappear.                                                                                                                                                          |
 
 `framework-manifest.json` defines which of these files are framework-owned
 and sync to downstream projects (`scripts/sync-framework.ts`).

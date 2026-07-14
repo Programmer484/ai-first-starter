@@ -218,7 +218,8 @@ Things that go wrong even when everyone means well:
   number in review anyway.
 - **Scope for framework work.** `pnpm scope` resolves modules, and
   framework files aren't a module — agents typically work framework tasks
-  with path-based scope (`pnpm scope --add scripts/ratchet.ts` style) or
+  with path-based scope (`pnpm scope --add scripts/ratchet.ts` style, or a
+  directory like `pnpm scope --add scripts/`) or
   unscoped-with-nudge. Watch `pnpm edit-log` for repeated blocks: repeated
   blocks mean the scoping was wrong for the task, not that the agent
   should get creative.
@@ -320,6 +321,9 @@ Follow these steps in order:
      of the template's new base.
    - **`knip.json`** — MERGE: keep the target's extra entry/project globs
      and `ignoreDependencies` AND take the template's additions.
+   - **`.claude/settings.json`** — MERGE: take the template's hook wiring
+     (PreToolUse/PostToolUse registrations) AND keep the target's own
+     additions (permissions allowlists, env, extra settings).
    - Any other file in the `NEEDS PER-PROJECT ADAPTATION:` list — reconcile
      per its `adapt` note.
 

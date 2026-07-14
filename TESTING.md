@@ -101,7 +101,8 @@ objective metric is the **mutation score**.
 
 - **Mutation score (Stryker).** `pnpm mutation` mutates the source (flips
   conditionals, deletes statements) and reports how many mutants your tests
-  kill. It runs **CI-only** (it's slow). New modules need **≥60%** before the
+  kill. It runs **CI-only** (it's slow). On PRs it runs only when
+  mutation-relevant paths change; pushes to main always run it. New modules need **≥60%** before the
   suite is trusted — the `break: 60` threshold in `stryker.config.mjs`, which
   ratchets upward like the coverage floor. A low score means assertion-free or
   vacuous tests.

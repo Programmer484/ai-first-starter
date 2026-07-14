@@ -6,16 +6,22 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { extname } from 'node:path';
 
+// Must stay a superset match of PRETTIER_EXT in scripts/verify.ts.
 const FORMATTABLE = new Set([
   '.ts',
   '.tsx',
   '.js',
   '.mjs',
   '.cjs',
+  '.mts',
+  '.cts',
+  '.jsx',
   '.json',
   '.md',
   '.yml',
   '.yaml',
+  '.css',
+  '.html',
 ]);
 
 type HookInput = { tool_input?: { file_path?: string }; cwd?: string };

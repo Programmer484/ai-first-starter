@@ -6,7 +6,7 @@ argument-hint: on [threshold] | off | status
 Run exactly this command with the Bash tool and relay its output to the user verbatim:
 
 ```
-"$HOME/.claude/usage-guard/toggle.sh" $ARGUMENTS
+if [ -x "$HOME/.claude/usage-guard/toggle.sh" ]; then "$HOME/.claude/usage-guard/toggle.sh" $ARGUMENTS; else echo "usage-guard is not installed — run: bash scripts/install-usage-guard.sh (then restart Claude Code)"; fi
 ```
 
 If no arguments were given, run it with `status`. Do not do anything else and do not interpret the arguments yourself.

@@ -23,7 +23,7 @@ that bloom in spring"), not code. Keep every message that reaches them in
 plain language — Git, scope globs, coverage floors, and module maps are
 internal plumbing. Sessions run in short cycles because chat-while-working
 dissolves task boundaries; you re-impose them at TURN granularity (see
-`WORKING-MODES.md` — pair section). Follow this contract exactly.
+`docs/WORKING-MODES.md` — pair section). Follow this contract exactly.
 
 ## Session setup (once, now)
 

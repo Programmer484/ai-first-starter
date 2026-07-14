@@ -47,6 +47,7 @@
     },
     { "path": ".claude/hooks", "dir": true },
     { "path": ".claude/commands", "dir": true },
+    { "path": ".claude/agents", "dir": true },
     {
       "path": ".claude/usage-guard",
       "dir": true,

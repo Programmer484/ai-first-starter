@@ -22,8 +22,8 @@ module or more than one PR.
 
 **Flow** (this already works; it's the default the tooling was built for):
 
-1. Decompose the spec into slices (use `/orchestrate-slices` for parallel
-   work, or work the slices yourself in order).
+1. Decompose the spec into slices (work the slices in order yourself; for
+   parallel work give each agent its own worktree — see SUPERVISOR.md §5).
 2. `pnpm scope <module-or-spec>` per slice — each slice gets its own scope.
 3. Code the slice: tests first for logic modules, public API through
    `index.ts`.

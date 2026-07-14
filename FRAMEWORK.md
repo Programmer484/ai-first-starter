@@ -23,6 +23,7 @@ framework-owned path (it includes itself). In practice:
 | Enforcement scripts | `scripts/*.ts`                                                                                                              |
 | Runtime hooks       | `.claude/hooks/` (`scope-guard.ts`, `auto-format.ts`)                                                                       |
 | Skills              | `.claude/commands/`                                                                                                         |
+| Agents              | `.claude/agents/` (agent definitions), `.claude/usage-guard/`                                                               |
 | Self-tests          | `test/**`                                                                                                                   |
 | Configs             | `eslint.config.js`, `vitest.config.ts`, `vitest.framework.config.ts`, `knip.json`, `lefthook.yml`, `module-map.schema.json` |
 | Docs                | `CLAUDE.md`, `WORKING-MODES.md`, `TESTING.md`, this file                                                                    |

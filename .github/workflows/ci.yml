@@ -55,7 +55,7 @@ jobs:
           # Tree diff (two refs, no merge base) — works in shallow checkouts;
           # the PR checkout is a merge of base+head, so this is exactly the PR's changes.
           if git diff --name-only "origin/${{ github.base_ref }}" HEAD \
-            | grep -qE '^(scripts/|test/|\.claude/|\.github/|eslint\.config\.js|vitest.*\.config\.ts|module-map|package\.json|pnpm-lock\.yaml|knip\.json|stryker\.config|lefthook\.yml|tsconfig\.json)'; then
+            | grep -qE '^(scripts/|test/|\.claude/|\.github/|eslint\.config\.js|vitest.*\.config\.ts|module-map|framework-manifest\.json|\.prettierrc\.json|\.prettierignore|package\.json|pnpm-lock\.yaml|knip\.json|stryker\.config|lefthook\.yml|tsconfig\.json)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"

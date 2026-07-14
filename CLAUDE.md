@@ -158,6 +158,20 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
     refspec pushes (`git push origin HEAD:main` from another branch) the
     local hook can't see.
 
+13. **Framework changes gate on the framework's own tests.** A change to
+    any framework-owned path (`scripts/`, `test/`, `.claude/`, or the
+    configs matched by `FRAMEWORK_PATH_RE` in `scripts/framework-paths.ts`)
+    must pass `pnpm test:framework` in addition to `pnpm verify` — run them
+    serially, never concurrently (the self-tests plant probe modules that
+    race a concurrent verify).
+    — _Enforced by:_ the lefthook `3_framework` pre-commit command (runs the
+    suite when staged files match), CI's path-filtered `framework` job, and
+    `pnpm pr`, which re-runs the suite for framework diffs and appends its
+    summary tail to the PR body under `## Framework self-tests` (a red
+    suite aborts the PR; `--no-verify` skips the gate but is logged to
+    `edit-log.jsonl`). `FRAMEWORK_PATH_RE` and ci.yml's path-filter regex
+    are a coordinated pair pinned identical by `test/framework-gate.test.ts`.
+
 ## Guidance (no deterministic check — judgement calls)
 
 - **Prefer reuse and the smallest change.** Check for an existing helper
@@ -169,6 +183,14 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
 - **Read `PREFERENCES.md` at session start and honor it.** It holds the
   user's plain-language agent-behavior preferences; `/customize` maintains
   it (and routes enforcement-worthy requests to real checks instead).
+- **Before editing framework files, read `FRAMEWORK.md`** — §3 invariants
+  first, then §4's file→test table to predict which self-tests should fail.
+  An unexpectedly failing self-test (one not mapped to a file you changed)
+  is a stop signal: halt and report rather than fixing it. Update failing
+  self-tests at the same assertion strength — never delete, skip, or weaken
+  one. Land coordinated changes atomically: error text ↔ its test ↔ any doc
+  quoting it; schema ↔ validator; new framework file ↔ manifest entry ↔
+  ci.yml regex.
 - **Follow your declared mode's contract** (`WORKING-MODES.md`). The pair-mode
   turn contract — smallest change per message, receipt, stop — is a working
   agreement, not a named check; the deterministic layer (scope-guard,

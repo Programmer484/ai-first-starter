@@ -2,7 +2,11 @@
 
 This guide is for the **human** briefing an agent to change the framework
 itself — the enforcement layer under `scripts/`, `.claude/hooks/`, `test/`,
-and the config files that wire them together. App-code work is covered by
+and the config files that wire them together. It binds any **agent** making
+framework changes too: `CLAUDE.md` rule 13 (the framework-test gate) and its
+Guidance bullet point here, so an agent touching framework paths is expected
+to have read this document — §3 invariants and §4's file→test table in
+particular. App-code work is covered by
 `CLAUDE.md` and `WORKING-MODES.md`; this document covers the layer those
 rules run on, where the usual safety net has a hole (see "The green-verify
 trap" below).
@@ -72,8 +76,13 @@ breakage after it shipped.
 
 **Standing rule for you as director: no framework PR merges without a
 passing `pnpm test:framework` output pasted or linked in the PR body.**
-Weaker agents will skip this step unless the briefing demands it
-explicitly, because nothing in their local loop fails when they do.
+This is now automated: `pnpm pr` re-runs the suite when the diff touches
+framework paths (per `FRAMEWORK_PATH_RE` in `scripts/framework-paths.ts`)
+and appends its summary tail to the PR body under `## Framework
+self-tests` — a red suite aborts the PR. Locally, the lefthook
+`3_framework` pre-commit gate runs the suite for framework-path commits,
+so nothing in the agent's loop stays green when the step is skipped. The
+review checklist item (§7) remains as verification that the automation ran.
 
 ---
 
@@ -142,6 +151,8 @@ Test files map nearly 1:1 to the scripts they pin:
 | `scripts/baseline.ts`                 | `verify-baseline.test.ts`                                                                                 |
 | `scripts/debt.ts`                     | `debt-ledger.test.ts`                                                                                     |
 | `scripts/pr.ts`                       | `pr-preview.test.ts`                                                                                      |
+| `scripts/framework-paths.ts`          | `framework-gate.test.ts`, `pr-preview.test.ts`                                                            |
+| `lefthook.yml`                        | `framework-gate.test.ts`                                                                                  |
 | `scripts/pre-push-guard.ts`           | `pre-push-guard.test.ts`                                                                                  |
 | `scripts/sync-framework.ts`, manifest | `sync-framework.test.ts`                                                                                  |
 | `scripts/no-stale-refs.ts`            | `no-stale-refs.test.ts`                                                                                   |
@@ -208,7 +219,10 @@ Things that go wrong even when everyone means well:
 - **CI path-filter drift.** The regex in `ci.yml` decides which PRs run
   `test:framework`. A new framework config file not matched by it ships
   with its self-tests silently skipped until the post-merge run. When a PR
-  adds a framework file, check the regex.
+  adds a framework file, check the regex. The ci.yml grep and
+  `FRAMEWORK_PATH_RE` (`scripts/framework-paths.ts`) are a coordinated
+  pair pinned identical by a self-test (`framework-gate.test.ts`) —
+  changing one means changing both.
 - **Downstream clobbering.** Edits to `adapt`-marked files (`CLAUDE.md`
   especially) create reconciliation work in every downstream repo on the
   next sync. Batch doc edits; keep them generic.

@@ -34,18 +34,18 @@ Setup checklist:
 
 ## Common commands
 
-| Command                           | What it does                                                        |
-| --------------------------------- | ------------------------------------------------------------------- |
-| `pnpm new-module <name>`          | Scaffold + register a module (`--gates polish` skips coverage only) |
-| `pnpm scope <module\|spec>`       | Write the allowed-files scope for a task (replaces any prior scope) |
-| `pnpm scope --add <module\|path>` | Widen the current scope                                             |
-| `pnpm verify`                     | Full quality gate, one exit code                                    |
-| `pnpm verify --agent`             | Same gate, bounded failure summary + `.task/last-verify.json`       |
-| `pnpm verify --baseline`          | On failure, classify each step as pre-existing vs introduced        |
-| `pnpm pr "<title>"`               | Branch, commit, push, open a draft PR (runs verify first)           |
-| `pnpm sync-framework <target>`    | Pull framework updates into a downstream repo (see FRAMEWORK.md §8) |
-| `pnpm edit-log`                   | Print the last 20 run-ledger records from `edit-log.jsonl`          |
-| `pnpm init:project <name>`        | Re-instantiate this template for a new project                      |
+| Command                                 | What it does                                                                                         |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `pnpm new-module <name>`                | Scaffold + register a module (`--gates polish` skips coverage only)                                  |
+| `pnpm scope <module\|spec\|path>`       | Write the allowed-files scope for a task (a directory expands to `dir/**`; replaces any prior scope) |
+| `pnpm scope --add <module\|spec\|path>` | Widen the current scope (a directory expands to `dir/**`)                                            |
+| `pnpm verify`                           | Full quality gate, one exit code                                                                     |
+| `pnpm verify --agent`                   | Same gate, bounded failure summary + `.task/last-verify.json`                                        |
+| `pnpm verify --baseline`                | On failure, classify each step as pre-existing vs introduced                                         |
+| `pnpm pr "<title>"`                     | Branch, commit, push, open a draft PR (runs verify first)                                            |
+| `pnpm sync-framework <target>`          | Pull framework updates into a downstream repo (see FRAMEWORK.md §8)                                  |
+| `pnpm edit-log`                         | Print the last 20 run-ledger records from `edit-log.jsonl`                                           |
+| `pnpm init:project <name>`              | Re-instantiate this template for a new project                                                       |
 
 ## usage-guard (optional)
 

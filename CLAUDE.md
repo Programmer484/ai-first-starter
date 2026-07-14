@@ -55,7 +55,8 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
 
 5. **Scope every task.** Run `pnpm scope <module-or-spec>` before editing;
    it writes `.task/allowed-files.json`. Widen scope with
-   `pnpm scope --add <module|path>` — a plain re-run REPLACES the scope, and
+   `pnpm scope --add <module|path>` (a path may be a file or a directory — a
+   directory expands to `<dir>/**`) — a plain re-run REPLACES the scope, and
    editing the JSON by hand is always blocked. Bare catch-all globs (`**`,
    `src/**`, …) are refused.
    — _Enforced by:_ `scope-guard` (PreToolUse hook). Deterministic for
@@ -121,7 +122,8 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
    `RATCHET_BASE_CONTENT` override the baseline); the shell line cap by
    `module-sync` (verify step); the `gates` enum by `module-sync`. A
    CI-only Stryker mutation gate (`pnpm mutation`, break 60) catches
-   coverage met by assertion-free tests.
+   coverage met by assertion-free tests; PRs run it only when
+   mutation-relevant paths change (pushes to main always run it).
 
 8. **No dead code.** Remove unused exports and files rather than keeping
    them "for later".

@@ -18,15 +18,16 @@ proves nothing about the framework — only `pnpm test:framework` does.**
 `framework-manifest.json` is the authoritative list — it names every
 framework-owned path (it includes itself). In practice:
 
-| Area                | Paths                                                                                                                       |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Enforcement scripts | `scripts/*.ts`                                                                                                              |
-| Runtime hooks       | `.claude/hooks/` (`scope-guard.ts`, `auto-format.ts`)                                                                       |
-| Skills              | `.claude/commands/`                                                                                                         |
-| Self-tests          | `test/**`                                                                                                                   |
-| Configs             | `eslint.config.js`, `vitest.config.ts`, `vitest.framework.config.ts`, `knip.json`, `lefthook.yml`, `module-map.schema.json` |
-| Docs                | `CLAUDE.md`, `WORKING-MODES.md`, `TESTING.md`, this file                                                                    |
-| CI                  | `.github/workflows/ci.yml` (not in the manifest — host-side)                                                                |
+| Area                | Paths                                                                                                                                                |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Enforcement scripts | `scripts/*.ts`                                                                                                                                       |
+| Runtime hooks       | `.claude/hooks/` (`scope-guard.ts`, `auto-format.ts`)                                                                                                |
+| Skills              | `.claude/commands/`                                                                                                                                  |
+| Agents              | `.claude/agents/` (agent definitions), `.claude/usage-guard/`                                                                                        |
+| Self-tests          | `test/**`                                                                                                                                            |
+| Configs             | `eslint.config.js`, `vitest.config.ts`, `vitest.framework.config.ts`, `knip.json`, `lefthook.yml`, `module-map.schema.json`, `.claude/settings.json` |
+| Docs                | `CLAUDE.md`, `WORKING-MODES.md`, `TESTING.md`, this file                                                                                             |
+| CI                  | `.github/workflows/ci.yml` (not in the manifest — host-side)                                                                                         |
 
 Two consequences:
 

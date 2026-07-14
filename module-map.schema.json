@@ -6,6 +6,7 @@
   "required": ["modules"],
   "additionalProperties": false,
   "properties": {
+    "$schema": { "type": "string" },
     "modules": {
       "type": "array",
       "items": {

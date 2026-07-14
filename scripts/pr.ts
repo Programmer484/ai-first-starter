@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { appendRun } from './edit-log.ts';
+import { FRAMEWORK_PATH_RE } from './framework-paths.ts';
 
 function run(cmd: string, args: string[], allowFail = false): string {
   const res = spawnSync(cmd, args, { encoding: 'utf8' });
@@ -119,6 +120,23 @@ export function chooseBranch(opts: {
   );
 }
 
+// Filters a changed-file list down to framework-owned paths (per
+// FRAMEWORK_PATH_RE, the same pattern ci.yml's framework job greps with).
+// Pure + exported so the matching is testable without git.
+export function frameworkFiles(changedFiles: string[]): string[] {
+  return changedFiles.filter((f) => FRAMEWORK_PATH_RE.test(f));
+}
+
+// Keeps the summary tail of a `pnpm test:framework` run for the PR body:
+// everything from the " Test Files " summary line onward, or the last 10
+// lines when that marker is absent (e.g. a crash before the summary).
+// Pure + exported so it's testable without spawning vitest.
+export function frameworkTail(output: string): string {
+  const lines = output.trimEnd().split('\n');
+  const start = lines.findIndex((l) => l.includes(' Test Files '));
+  return (start >= 0 ? lines.slice(start) : lines.slice(-10)).join('\n');
+}
+
 function main(): void {
   const argv = process.argv.slice(2);
   const title = argv.find((a) => !a.startsWith('--'));
@@ -134,12 +152,48 @@ function main(): void {
   const bodyFileFlag = flagValue('--body-file');
   const skipVerify = argv.includes('--no-verify');
 
+  // Set inside the gate below when the diff touches framework paths;
+  // appended to the PR body after the Debt section.
+  let frameworkSection: string | null = null;
+
   if (!skipVerify) {
     console.log('Running verify before PR…');
     const v = spawnSync('node', ['scripts/verify.ts'], { stdio: 'inherit' });
     if (v.status !== 0) {
       console.error('verify failed — not opening a PR.');
       process.exit(1);
+    }
+
+    // Framework gate: verify does NOT cover test/** (FRAMEWORK.md §2), so a
+    // diff touching framework paths must also pass `pnpm test:framework` —
+    // run serially, after verify (the self-tests plant probes that race a
+    // concurrent verify). Changed files = tracked diff vs origin/main plus
+    // untracked; a missing origin/main skips gracefully (non-fatal, same
+    // posture as the debt diff below). --no-verify above stays the only —
+    // logged — way to skip this gate.
+    const tracked = spawnSync('git', ['diff', '--name-only', 'origin/main'], { encoding: 'utf8' });
+    const untracked = spawnSync('git', ['ls-files', '--others', '--exclude-standard'], {
+      encoding: 'utf8',
+    });
+    if (tracked.status !== 0) {
+      console.warn('Could not diff against origin/main — skipping the framework-test gate.');
+    } else {
+      const changed = (tracked.stdout + '\n' + (untracked.stdout ?? ''))
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (frameworkFiles(changed).length > 0) {
+        console.log('Framework paths changed — running pnpm test:framework…');
+        const ft = spawnSync('pnpm', ['test:framework'], { encoding: 'utf8' });
+        const output = (ft.stdout ?? '') + (ft.stderr ?? '');
+        if (ft.status !== 0) {
+          console.error(frameworkTail(output));
+          console.error('pnpm test:framework failed — not opening a PR.');
+          process.exit(1);
+        }
+        frameworkSection = frameworkTail(output);
+        console.log(frameworkSection);
+      }
     }
   } else {
     appendRun({ kind: 'pr-no-verify', title });
@@ -208,6 +262,13 @@ function main(): void {
         ? '```diff\n' + debtDiff.stdout.trim() + '\n```'
         : 'No debt changes.';
   body += `\n\n## Debt\n\n${debtSummary}\n`;
+
+  // Framework-test receipt: when the diff touched framework paths, the gate
+  // above re-ran `pnpm test:framework`; surface its green summary tail so
+  // reviewers see it without asking (FRAMEWORK.md §2's standing rule).
+  if (frameworkSection !== null) {
+    body += `\n## Framework self-tests\n\n\`\`\`\n${frameworkSection}\n\`\`\`\n`;
+  }
 
   const prUrl = run('gh', [
     'pr',

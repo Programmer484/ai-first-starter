@@ -20,6 +20,16 @@ pre-commit:
       # is the agent inner loop (changed-files lint/format, no coverage,
       # ratchet/knip skipped); never substitute it for the pre-commit run.
       run: pnpm verify
+    3_framework:
+      # Framework commits gate on the framework's own tests (pnpm verify does
+      # NOT cover test/** — see FRAMEWORK.md §2). Runs only when staged files
+      # match FRAMEWORK_PATH_RE (scripts/framework-paths.ts exits 0 on a
+      # match), so docs-only and app-only commits don't pay the ~90s. Serial
+      # after 2_verify by construction (piped + name order) — the self-tests
+      # plant probes that would race a concurrent verify.
+      run: >
+        if git diff --cached --name-only | node scripts/framework-paths.ts;
+        then pnpm test:framework; fi
 
 # Pre-push refuses pushing the default branch — ship with `pnpm pr` (branch,
 # commit, draft PR) instead. ALLOW_MAIN_PUSH=1 is the escape hatch; the

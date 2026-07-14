@@ -2,7 +2,7 @@
 // scripts/pr.ts). extractPreviewUrl is a pure function over `gh pr view
 // --json statusCheckRollup,comments` output, so these run without `gh`.
 import { describe, it, expect } from 'vitest';
-import { extractPreviewUrl, chooseBranch } from '../scripts/pr.ts';
+import { extractPreviewUrl, chooseBranch, frameworkFiles, frameworkTail } from '../scripts/pr.ts';
 
 describe('extractPreviewUrl', () => {
   it('finds a preview URL in a check targetUrl', () => {
@@ -113,5 +113,58 @@ describe('chooseBranch', () => {
     expect(
       chooseBranch({ ...base, title: 'Feat: A Very Long Title That Keeps Going On And On!' }),
     ).toBe('feat/' + 'feat-a-very-long-title-that-keeps-going-on-and-on'.slice(0, 40));
+  });
+});
+
+// Framework-gate helpers in `pnpm pr` (see frameworkFiles/frameworkTail in
+// scripts/pr.ts): pure functions over a changed-file list and a
+// test:framework output, so these run without git or vitest spawns.
+describe('frameworkFiles', () => {
+  it('keeps only framework-owned paths from a mixed change list', () => {
+    expect(
+      frameworkFiles([
+        'src/modules/pricing/index.ts',
+        'scripts/pr.ts',
+        'README.md',
+        'test/framework-gate.test.ts',
+        'lefthook.yml',
+      ]),
+    ).toEqual(['scripts/pr.ts', 'test/framework-gate.test.ts', 'lefthook.yml']);
+  });
+
+  it('returns an empty list for an app-only diff', () => {
+    expect(frameworkFiles(['src/modules/pricing/index.ts', 'DEBT.md', 'docs/notes.md'])).toEqual(
+      [],
+    );
+  });
+
+  it('does not match framework-like names outside the repo-root anchors', () => {
+    expect(frameworkFiles(['src/scripts/helper.ts', 'app/lefthook.yml.bak'])).toEqual([]);
+  });
+});
+
+describe('frameworkTail', () => {
+  it('returns everything from the " Test Files " summary line onward', () => {
+    const output = [
+      '✓ test/a.test.ts (3 tests)',
+      '✓ test/b.test.ts (5 tests)',
+      ' Test Files  19 passed (19)',
+      '      Tests  120 passed (120)',
+      '   Duration  85.2s',
+    ].join('\n');
+    expect(frameworkTail(output)).toBe(
+      [' Test Files  19 passed (19)', '      Tests  120 passed (120)', '   Duration  85.2s'].join(
+        '\n',
+      ),
+    );
+  });
+
+  it('falls back to the last 10 lines when no summary marker exists', () => {
+    const lines = Array.from({ length: 15 }, (_, i) => `line ${i + 1}`);
+    expect(frameworkTail(lines.join('\n'))).toBe(lines.slice(-10).join('\n'));
+  });
+
+  it('ignores trailing blank lines when taking the fallback tail', () => {
+    expect(frameworkTail('a\nb\n\n\n')).toBe('a\nb');
   });
 });

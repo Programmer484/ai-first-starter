@@ -57,7 +57,8 @@ change single-purpose.
 
 ## DEBT-4: pr.ts branch-selection has residual gaps and no stateful regression tests
 
-severity: low — module: - — found: 2026-07-07 — status: open
+severity: low — module: - — found: 2026-07-07 — status: fixed
+fixed-by: branchExistsInGit ls-remote probe (a), unconditional `.task/branch` consume (b), sandboxed pr.ts integration tests (c) — 2026-07-14
 
 Three low-severity gaps in the PR #9 branch-selection logic in scripts/pr.ts,
 found by post-merge review and left unfixed as they are benign/mitigated: (a)
@@ -71,3 +72,19 @@ already-on-a-feature-branch path leave `.task/branch` behind (mitigated: the
 next `pnpm scope` overwrites it); (c) the stateful branch logic in `main()`
 (scope-JSON parse, git probes, `rmSync` ordering) has no regression tests —
 only the pure `chooseBranch()` is covered.
+
+## DEBT-5: pnpm pr shipped onto another session's checked-out branch
+
+severity: medium — module: - — found: 2026-07-14 — status: fixed
+fixed-by: checkShipBranch guard in scripts/pr.ts + sandboxed ship-branch integration tests — 2026-07-14
+
+When `pnpm pr` ran from a non-default branch it assumed the checked-out
+branch was the current task's branch and committed + pushed there
+(`git add -A` on whatever HEAD the shared working tree happened to be on).
+With two concurrent sessions sharing one working tree and one `.task/`,
+session B's `pnpm pr` fast-forwarded its commit onto session A's freshly
+created branch, mutating A's open PR (#19; restored via force-with-lease —
+see PR #20's description, which surfaced the incident but did not log it).
+Fixed by refusing to ship when the active scope records a different branch
+than the one checked out; `--branch "<current>"` is the explicit override
+and is logged to edit-log.jsonl as `pr-branch-override`.

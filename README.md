@@ -47,6 +47,13 @@ Setup checklist:
 | `pnpm edit-log`                   | Print the last 20 run-ledger records from `edit-log.jsonl`          |
 | `pnpm init:project <name>`        | Re-instantiate this template for a new project                      |
 
+## usage-guard (optional)
+
+`bash scripts/install-usage-guard.sh` installs a machine-wide guard that pauses
+a session when the 5-hour usage window crosses a threshold and forks it back to
+life once the window resets. Arm it per session with `/usage-guard on 90`.
+Linux/systemd only; see `.claude/usage-guard/README.md`.
+
 ## Agent pipeline
 
 Run `/feature <description>` in Claude Code, or follow the pipeline in

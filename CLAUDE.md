@@ -131,7 +131,8 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
 
 9. **Keep formatting canonical.** Don't argue with the formatter.
    — _Enforced by:_ `format` (verify step) + the `auto-format` PostToolUse
-   hook, which formats every formattable file an agent writes.
+   hook, which formats every formattable file an agent writes inside this
+   repo (files outside the repo root are left to their own repo's style).
 
 10. **No stale per-task references.** Files under `src/**` must never
     mention `.task/` — per-task working state (specs, scopes, branch

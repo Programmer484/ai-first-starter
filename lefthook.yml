@@ -22,7 +22,7 @@ pre-commit:
       run: pnpm verify
     3_framework:
       # Framework commits gate on the framework's own tests (pnpm verify does
-      # NOT cover test/** — see FRAMEWORK.md §2). Runs only when staged files
+      # NOT cover test/** — see docs/FRAMEWORK.md §2). Runs only when staged files
       # match FRAMEWORK_PATH_RE (scripts/framework-paths.ts exits 0 on a
       # match), so docs-only and app-only commits don't pay the ~90s. Serial
       # after 2_verify by construction (piped + name order) — the self-tests

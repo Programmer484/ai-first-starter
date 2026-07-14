@@ -11,5 +11,5 @@
 - [ ] `pnpm verify` is green (format, lint, boundaries, typecheck, tests, coverage, knip)
 - [ ] Imports go through module `index.ts` only (no deep imports)
 - [ ] New module deps declared in `module-map.json` `allowedImports`
-- [ ] Tests added for new/changed public exports (see `TESTING.md`)
+- [ ] Tests added for new/changed public exports (see `docs/TESTING.md`)
 - [ ] No dead code, no lowered thresholds

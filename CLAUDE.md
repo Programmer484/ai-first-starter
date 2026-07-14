@@ -8,7 +8,7 @@ shell layer), the rule says so. Rules that cannot be checked live under
 
 ## Modes
 
-Two working modes, defined in `WORKING-MODES.md`: **PRD mode** (spec-driven,
+Two working modes, defined in `docs/WORKING-MODES.md`: **PRD mode** (spec-driven,
 multi-slice, one scope + full verify + PR per slice) and **pair mode**
 (iterative editing with the user in the loop, boundaries at turn
 granularity, entered via `/feature`). **Declare your mode at session
@@ -180,11 +180,11 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
 - **Test through the public surface** (`index.ts`); reach into your own
   module's `internal/` only when logic is unreachable from the public API.
   (Deep-importing ANOTHER module's internals fails lint even from tests —
-  there is no test exemption.) See `TESTING.md`.
+  there is no test exemption.) See `docs/TESTING.md`.
 - **Read `PREFERENCES.md` at session start and honor it.** It holds the
   user's plain-language agent-behavior preferences; `/customize` maintains
   it (and routes enforcement-worthy requests to real checks instead).
-- **Before editing framework files, read `FRAMEWORK.md`** — §3 invariants
+- **Before editing framework files, read `docs/FRAMEWORK.md`** — §3 invariants
   first, then §4's file→test table to predict which self-tests should fail.
   An unexpectedly failing self-test (one not mapped to a file you changed)
   is a stop signal: halt and report rather than fixing it. Update failing
@@ -192,7 +192,7 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
   one. Land coordinated changes atomically: error text ↔ its test ↔ any doc
   quoting it; schema ↔ validator; new framework file ↔ manifest entry ↔
   ci.yml regex.
-- **Follow your declared mode's contract** (`WORKING-MODES.md`). The pair-mode
+- **Follow your declared mode's contract** (`docs/WORKING-MODES.md`). The pair-mode
   turn contract — smallest change per message, receipt, stop — is a working
   agreement, not a named check; the deterministic layer (scope-guard,
   verify) still runs underneath it.

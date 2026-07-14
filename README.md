@@ -43,7 +43,7 @@ Setup checklist:
 | `pnpm verify --agent`                   | Same gate, bounded failure summary + `.task/last-verify.json`                                        |
 | `pnpm verify --baseline`                | On failure, classify each step as pre-existing vs introduced                                         |
 | `pnpm pr "<title>"`                     | Branch, commit, push, open a draft PR (runs verify first)                                            |
-| `pnpm sync-framework <target>`          | Pull framework updates into a downstream repo (see FRAMEWORK.md §8)                                  |
+| `pnpm sync-framework <target>`          | Pull framework updates into a downstream repo (see docs/FRAMEWORK.md §8)                             |
 | `pnpm edit-log`                         | Print the last 20 run-ledger records from `edit-log.jsonl`                                           |
 | `pnpm init:project <name>`              | Re-instantiate this template for a new project                                                       |
 
@@ -63,26 +63,27 @@ same checks, bounded file-grouped output, machine-readable snapshot.
 
 ## Documentation map
 
-This README is the entry point; each doc below owns one concern. Agents read
-the first group; humans supervising agents read the second.
+This README is the entry point. The root holds the **living files** — loaded
+every session or actively written to; `docs/` holds the **reference manuals**
+consulted on demand.
 
-**For agents (loaded or referenced every session):**
+**Root (living files):**
 
-| Doc                      | Owns                                                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLAUDE.md`              | The rules. Every rule maps to a named deterministic check; break it and verify or a hook fails with an actionable error.                                      |
-| `WORKING-MODES.md`       | The two working modes — PRD (spec-driven, one scope + verify + PR per slice) and pair (turn-granularity iteration via `/feature`) — and each mode's contract. |
-| `TESTING.md`             | The test playbook: what to test, through which surface, per gate profile.                                                                                     |
-| `PREFERENCES.md`         | The user's plain-language agent-behavior preferences. Read at session start; maintained via `/customize`.                                                     |
-| `module-map.schema.json` | The shape of `module-map.json` — modules, `allowedImports`, `allowedExternals`, `gates`.                                                                      |
+| Doc                      | Owns                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `CLAUDE.md`              | The rules. Every rule maps to a named deterministic check; break it and verify or a hook fails with an actionable error. |
+| `PREFERENCES.md`         | The user's plain-language agent-behavior preferences. Read at session start; maintained via `/customize`.                |
+| `DEBT.md`                | The deferred-work ledger. Append-only history — entries flip status (`fixed`/`wontfix`), never disappear.                |
+| `module-map.schema.json` | The shape of `module-map.json` — modules, `allowedImports`, `allowedExternals`, `gates`.                                 |
 
-**For the human operating the system:**
+**`docs/` (reference manuals):**
 
-| Doc             | Owns                                                                                                                                                                                                                                                               |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SUPERVISOR.md` | Day-to-day operation: the observable artifacts (ledger, scope, verify snapshot), healthy-vs-unhealthy signals, how to steer agents, the 5-minute session review.                                                                                                   |
-| `FRAMEWORK.md`  | Changing the framework itself (`scripts/`, hooks, configs): invariants that must not change, the `test:framework` rule, triaging framework test failures, agent briefing template, merge checklist, and the downstream-sync procedure (§8, `pnpm sync-framework`). |
-| `DEBT.md`       | The deferred-work ledger. Append-only history — entries flip status (`fixed`/`wontfix`), never disappear.                                                                                                                                                          |
+| Doc                     | Owns                                                                                                                                                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `docs/WORKING-MODES.md` | The two working modes — PRD (spec-driven, one scope + verify + PR per slice) and pair (turn-granularity iteration via `/feature`) — and each mode's contract.                                                                                                      |
+| `docs/TESTING.md`       | The test playbook: what to test, through which surface, per gate profile.                                                                                                                                                                                          |
+| `docs/SUPERVISOR.md`    | Day-to-day operation: the observable artifacts (ledger, scope, verify snapshot), healthy-vs-unhealthy signals, how to steer agents, the 5-minute session review.                                                                                                   |
+| `docs/FRAMEWORK.md`     | Changing the framework itself (`scripts/`, hooks, configs): invariants that must not change, the `test:framework` rule, triaging framework test failures, agent briefing template, merge checklist, and the downstream-sync procedure (§8, `pnpm sync-framework`). |
 
 `framework-manifest.json` defines which of these files are framework-owned
 and sync to downstream projects (`scripts/sync-framework.ts`).

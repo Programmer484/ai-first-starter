@@ -78,11 +78,11 @@ describe('sync-framework --check', () => {
 
   it('fails (exit 1) on non-adapt drift, falling back to "diverged" without git history', () => {
     const target = syncedTarget();
-    writeFileSync(join(target, 'WORKING-MODES.md'), 'local edit\n');
+    writeFileSync(join(target, 'docs/WORKING-MODES.md'), 'local edit\n');
     const { status, out } = run('node', ['scripts/sync-framework.ts', target, '--check']);
     expect(status).toBe(1);
     expect(out).toContain('DRIFT (1)');
-    expect(out).toContain('WORKING-MODES.md');
+    expect(out).toContain('docs/WORKING-MODES.md');
     expect(out).toContain('diverged');
   });
 
@@ -101,7 +101,7 @@ describe('sync-framework --check', () => {
     g('init');
     g('add', '-A');
     run('git', ['-C', target, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-m', 'base']);
-    writeFileSync(join(target, 'WORKING-MODES.md'), 'downstream patch\n');
+    writeFileSync(join(target, 'docs/WORKING-MODES.md'), 'downstream patch\n');
     const { status, out } = run('node', ['scripts/sync-framework.ts', target, '--check']);
     expect(status).toBe(1);
     expect(out).toContain('target ahead');
@@ -161,7 +161,7 @@ describe('sync-framework --check self-audit (no target)', () => {
 
   it('fails when the downstream repo has drifted', () => {
     const { downstream, template } = downstreamAndTemplate();
-    writeFileSync(join(downstream, 'WORKING-MODES.md'), 'local edit\n');
+    writeFileSync(join(downstream, 'docs/WORKING-MODES.md'), 'local edit\n');
     const { status, out } = run(
       'node',
       [join(downstream, 'scripts/sync-framework.ts'), '--check'],

@@ -307,6 +307,15 @@ or `PREFERENCES.md`), never in these files. (`SUPERVISOR.md` carries an
 `adapt` note only so its doc/tool routing can be re-pointed at the target's
 skills after a sync — that reconciliation, not free-form customization.)
 
+**Path migration (2026-07):** these four reference docs moved from the repo
+root into `docs/`. Syncing across this change creates the `docs/` copies but
+leaves a target's OLD root-level copies behind (a sync never deletes target
+files) — after the sync, delete them in the target: `git rm FRAMEWORK.md
+SUPERVISOR.md TESTING.md WORKING-MODES.md`. Until a target syncs, its own
+`framework-sync-check` job fails with `manifest path missing in template`
+for the moved paths — that is the expected "template moved ahead" alarm,
+not local drift.
+
 Follow these steps in order:
 
 1. **Dry-run from the template.** In the TEMPLATE repo, on a clean,

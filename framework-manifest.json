@@ -47,6 +47,11 @@
     },
     { "path": ".claude/hooks", "dir": true },
     { "path": ".claude/commands", "dir": true },
+    {
+      "path": ".claude/usage-guard",
+      "dir": true,
+      "$comment": "Source of truth for the usage-guard scripts; they only take effect once `bash scripts/install-usage-guard.sh` copies them into the user's global ~/.claude. Syncing this directory installs nothing on its own."
+    },
     { "path": "test", "dir": true }
   ]
 }

@@ -89,6 +89,36 @@ function pollForPreviewUrl(branch: string): string | null {
   return null;
 }
 
+// Guards the ship-on-current-branch path (`pnpm pr` run from a non-default
+// branch). With one working tree (and one `.task/`) shared between concurrent
+// sessions, "not on the default branch" does NOT imply "on this task's
+// branch": session B's `pnpm pr` once committed straight onto session A's
+// freshly created branch and fast-forward-pushed into A's open PR (#19,
+// restored via force-with-lease — see DEBT-5). When the active scope records
+// a branch and the checked-out branch differs, that is the collision
+// signature: refuse, unless `--branch` explicitly names the checked-out
+// branch (an override the caller logs). No scope or no recorded branch means
+// no corroboration either way — allowed, so pair-mode and manual flows keep
+// working. Pure + exported so it's testable without git or a repo.
+export function checkShipBranch(opts: {
+  current: string;
+  scopeBranch: string;
+  branchFlag: string | undefined;
+}): { ok: true; overridden: boolean } | { ok: false; reason: string } {
+  const { current, scopeBranch, branchFlag } = opts;
+  if (!scopeBranch || scopeBranch === current) return { ok: true, overridden: false };
+  if (branchFlag === current) return { ok: true, overridden: true };
+  return {
+    ok: false,
+    reason:
+      `pr: the active scope was recorded for branch "${scopeBranch}" but the working tree ` +
+      `is on "${current}" — committing here would push this task's changes onto another ` +
+      `task's branch (and its open PR, if any). Switch to the default branch and re-run, ` +
+      `or pass --branch "${current}" if this checked-out branch really is where this ` +
+      `task should ship (the override is logged to edit-log.jsonl).`,
+  };
+}
+
 // Picks the branch name when `pnpm pr` runs from the default branch.
 // Priority: explicit --branch flag, then `.task/branch` — but ONLY when it is
 // fresh — then a slug of the PR title. `.task/branch` is ephemeral state from
@@ -120,6 +150,23 @@ export function chooseBranch(opts: {
   );
 }
 
+// Does <branch> already exist, locally or on origin? Local heads and fetched
+// remote-tracking refs are probed first (cheap, offline); when both miss,
+// `git ls-remote` asks origin directly — a stale remote branch that was never
+// fetched slips the local probes, and a later `git push -u` onto it could
+// silently fast-forward someone's open PR (DEBT-4a). ls-remote failing
+// (offline, no remote) degrades to the local answer instead of blocking.
+function branchExistsInGit(branch: string): boolean {
+  const local = ['refs/heads/', 'refs/remotes/origin/'].some(
+    (p) => spawnSync('git', ['rev-parse', '--verify', '--quiet', p + branch]).status === 0,
+  );
+  if (local) return true;
+  const remote = spawnSync('git', ['ls-remote', '--heads', 'origin', branch], {
+    encoding: 'utf8',
+  });
+  return remote.status === 0 && remote.stdout.trim() !== '';
+}
+
 // Filters a changed-file list down to framework-owned paths (per
 // FRAMEWORK_PATH_RE, the same pattern ci.yml's framework job greps with).
 // Pure + exported so the matching is testable without git.
@@ -130,9 +177,15 @@ export function frameworkFiles(changedFiles: string[]): string[] {
 // Keeps the summary tail of a `pnpm test:framework` run for the PR body:
 // everything from the " Test Files " summary line onward, or the last 10
 // lines when that marker is absent (e.g. a crash before the summary).
+// vitest colorizes this output even when piped, so ANSI SGR sequences are
+// stripped first — they render as raw `[2m`/`[22m` noise in a PR body.
 // Pure + exported so it's testable without spawning vitest.
 export function frameworkTail(output: string): string {
-  const lines = output.trimEnd().split('\n');
+  const lines = output
+    // eslint-disable-next-line no-control-regex -- matching the ESC byte is the point
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .trimEnd()
+    .split('\n');
   const start = lines.findIndex((l) => l.includes(' Test Files '));
   return (start >= 0 ? lines.slice(start) : lines.slice(-10)).join('\n');
 }
@@ -164,7 +217,7 @@ function main(): void {
       process.exit(1);
     }
 
-    // Framework gate: verify does NOT cover test/** (FRAMEWORK.md §2), so a
+    // Framework gate: verify does NOT cover test/** (docs/FRAMEWORK.md §2), so a
     // diff touching framework paths must also pass `pnpm test:framework` —
     // run serially, after verify (the self-tests plant probes that race a
     // concurrent verify). Changed files = tracked diff vs origin/main plus
@@ -207,34 +260,48 @@ function main(): void {
     ) || 'main';
   const current = run('git', ['branch', '--show-current']);
 
+  // Branch recorded by the active scope (`pnpm scope` writes it). Empty when
+  // there is no scope, no branch field, or the file is unreadable — callers
+  // treat empty as "no corroboration".
+  let scopeBranch = '';
+  if (existsSync('.task/allowed-files.json')) {
+    try {
+      const scope: unknown = JSON.parse(readFileSync('.task/allowed-files.json', 'utf8'));
+      const b = (scope as Record<string, unknown>).branch;
+      if (typeof b === 'string') scopeBranch = b;
+    } catch {
+      // Unreadable scope file = no corroboration; scopeBranch stays empty.
+    }
+  }
+
   let branch = current;
   if (current === defaultBranch || current === '') {
     const branchFile = '.task/branch';
     const taskBranch = existsSync(branchFile) ? readFileSync(branchFile, 'utf8').trim() : '';
-    // Freshness cross-check inputs (see chooseBranch). Both git probes are
-    // allowed to fail — a missing ref just means the branch doesn't exist.
-    let scopeBranch = '';
-    if (existsSync('.task/allowed-files.json')) {
-      try {
-        const scope: unknown = JSON.parse(readFileSync('.task/allowed-files.json', 'utf8'));
-        const b = (scope as Record<string, unknown>).branch;
-        if (typeof b === 'string') scopeBranch = b;
-      } catch {
-        // Unreadable scope file = no corroboration; taskBranch stays unused.
-      }
-    }
-    const branchExists =
-      taskBranch !== '' &&
-      ['refs/heads/', 'refs/remotes/origin/'].some(
-        (p) => spawnSync('git', ['rev-parse', '--verify', '--quiet', p + taskBranch]).status === 0,
-      );
+    // Freshness cross-check (see chooseBranch). The git probes are allowed to
+    // fail — a missing ref just means the branch doesn't exist.
+    const branchExists = taskBranch !== '' && branchExistsInGit(taskBranch);
     branch = chooseBranch({ branchFlag, title, taskBranch, scopeBranch, branchExists });
     run('git', ['switch', '-c', branch]);
-    // Consume-once: the branch file has done its job; deleting it stops the
-    // NEXT task (back on the default branch) from silently reusing it.
-    if (branch === taskBranch) rmSync(branchFile, { force: true });
     console.log(`Created branch ${branch}`);
+  } else {
+    const check = checkShipBranch({ current, scopeBranch, branchFlag });
+    if (!check.ok) {
+      console.error(check.reason);
+      process.exit(1);
+    }
+    if (check.overridden) {
+      appendRun({ kind: 'pr-branch-override', title, branch: current, scopeBranch });
+      console.warn(`Shipping on checked-out branch ${current} (--branch override; logged).`);
+    }
   }
+
+  // Consume-once: `.task/branch` has done its job on EVERY path through the
+  // block above — the fresh path used it, the flag/slug/ship-in-place paths
+  // superseded it — and deleting it here stops the NEXT task (back on the
+  // default branch) from silently reusing it. It used to be consumed only on
+  // the used-it path, leaving stale state behind on the others (DEBT-4b).
+  rmSync('.task/branch', { force: true });
 
   run('git', ['add', '-A']);
   const hasStaged = spawnSync('git', ['diff', '--cached', '--quiet']).status !== 0;
@@ -265,7 +332,7 @@ function main(): void {
 
   // Framework-test receipt: when the diff touched framework paths, the gate
   // above re-ran `pnpm test:framework`; surface its green summary tail so
-  // reviewers see it without asking (FRAMEWORK.md §2's standing rule).
+  // reviewers see it without asking (docs/FRAMEWORK.md §2's standing rule).
   if (frameworkSection !== null) {
     body += `\n## Framework self-tests\n\n\`\`\`\n${frameworkSection}\n\`\`\`\n`;
   }

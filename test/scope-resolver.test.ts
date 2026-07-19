@@ -85,6 +85,44 @@ describe('scope refuses catch-all globs', () => {
   });
 });
 
+describe('scope expands a directory arg to a /** glob', () => {
+  it('an existing directory yields <dir>/** in the allow list', () => {
+    mkdirSync(join(root, 'scripts'), { recursive: true });
+    expect(scope('scripts').status).toBe(0);
+    const payload = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(payload.allow).toContain('scripts/**');
+    expect(payload.allow).not.toContain('scripts');
+  });
+
+  it('trailing-slash and no-slash forms yield the same glob', () => {
+    mkdirSync(join(root, 'scripts'), { recursive: true });
+    expect(scope('scripts/').status).toBe(0);
+    const slashed = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(scope('scripts').status).toBe(0);
+    const plain = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(slashed.allow).toContain('scripts/**');
+    expect(slashed.allow).toEqual(plain.allow);
+  });
+
+  it('a directory that derives a catch-all is refused with exit 2', () => {
+    mkdirSync(join(root, 'src'), { recursive: true });
+    const { status, out } = scope('src');
+    expect(status).toBe(2);
+    expect(out).toContain('refusing catch-all scope "src/**"');
+    expect(out).toContain('pnpm scope <module|path> [--add]');
+    expect(existsSync(taskFile)).toBe(false);
+  });
+
+  it('--add <directory> widens an existing scope with the /** glob', () => {
+    mkdirSync(join(root, 'scripts'), { recursive: true });
+    expect(scope('_example').status).toBe(0);
+    expect(scope('scripts', '--add').status).toBe(0);
+    const payload = JSON.parse(readFileSync(taskFile, 'utf8'));
+    expect(payload.allow).toContain('src/modules/_example/**');
+    expect(payload.allow).toContain('scripts/**');
+  });
+});
+
 describe('scope appends a ledger record', () => {
   it('a successful run logs a scope-set record with args', () => {
     expect(scope('_example').status).toBe(0);

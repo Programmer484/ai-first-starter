@@ -8,7 +8,7 @@ shell layer), the rule says so. Rules that cannot be checked live under
 
 ## Modes
 
-Two working modes, defined in `WORKING-MODES.md`: **PRD mode** (spec-driven,
+Two working modes, defined in `docs/WORKING-MODES.md`: **PRD mode** (spec-driven,
 multi-slice, one scope + full verify + PR per slice) and **pair mode**
 (iterative editing with the user in the loop, boundaries at turn
 granularity, entered via `/feature`). **Declare your mode at session
@@ -56,7 +56,8 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
 5. **Scope every task.** Run `pnpm scope <module-or-spec>` before editing;
    it writes `.task/allowed-files.json`. Widen scope with
    `pnpm scope add <module|path>` (`--add` also works under pnpm, but `npm
-run` swallows `--add`, so prefer the subcommand) — a plain re-run
+run` swallows `--add`, so prefer the subcommand; a path may be a file or
+   a directory — a directory expands to `<dir>/**`) — a plain re-run
    REPLACES the scope, and
    editing the JSON by hand is always blocked. Bare catch-all globs (`**`,
    `src/**`, …) are refused.
@@ -123,7 +124,8 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
    `RATCHET_BASE_CONTENT` override the baseline); the shell line cap by
    `module-sync` (verify step); the `gates` enum by `module-sync`. A
    CI-only Stryker mutation gate (`pnpm mutation`, break 60) catches
-   coverage met by assertion-free tests.
+   coverage met by assertion-free tests; PRs run it only when
+   mutation-relevant paths change (pushes to main always run it).
 
 8. **No dead code.** Remove unused exports and files rather than keeping
    them "for later".
@@ -131,7 +133,8 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
 
 9. **Keep formatting canonical.** Don't argue with the formatter.
    — _Enforced by:_ `format` (verify step) + the `auto-format` PostToolUse
-   hook, which formats every formattable file an agent writes.
+   hook, which formats every formattable file an agent writes inside this
+   repo (files outside the repo root are left to their own repo's style).
 
 10. **No stale per-task references.** Files under `src/**` must never
     mention `.task/` — per-task working state (specs, scopes, branch
@@ -158,7 +161,21 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
     refspec pushes (`git push origin HEAD:main` from another branch) the
     local hook can't see.
 
-13. **Hook commands must be cwd-robust.** Hook commands in
+13. **Framework changes gate on the framework's own tests.** A change to
+    any framework-owned path (`scripts/`, `test/`, `.claude/`, or the
+    configs matched by `FRAMEWORK_PATH_RE` in `scripts/framework-paths.ts`)
+    must pass `pnpm test:framework` in addition to `pnpm verify` — run them
+    serially, never concurrently (the self-tests plant probe modules that
+    race a concurrent verify).
+    — _Enforced by:_ the lefthook `3_framework` pre-commit command (runs the
+    suite when staged files match), CI's path-filtered `framework` job, and
+    `pnpm pr`, which re-runs the suite for framework diffs and appends its
+    summary tail to the PR body under `## Framework self-tests` (a red
+    suite aborts the PR; `--no-verify` skips the gate but is logged to
+    `edit-log.jsonl`). `FRAMEWORK_PATH_RE` and ci.yml's path-filter regex
+    are a coordinated pair pinned identical by `test/framework-gate.test.ts`.
+
+14. **Hook commands must be cwd-robust.** Hook commands in
     `.claude/settings.json` that reference `.claude/hooks/` scripts must
     resolve the path via `$CLAUDE_PROJECT_DIR` (quoted, e.g.
     `node "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/scope-guard.ts"`) — never
@@ -176,11 +193,19 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
 - **Test through the public surface** (`index.ts`); reach into your own
   module's `internal/` only when logic is unreachable from the public API.
   (Deep-importing ANOTHER module's internals fails lint even from tests —
-  there is no test exemption.) See `TESTING.md`.
+  there is no test exemption.) See `docs/TESTING.md`.
 - **Read `PREFERENCES.md` at session start and honor it.** It holds the
   user's plain-language agent-behavior preferences; `/customize` maintains
   it (and routes enforcement-worthy requests to real checks instead).
-- **Follow your declared mode's contract** (`WORKING-MODES.md`). The pair-mode
+- **Before editing framework files, read `docs/FRAMEWORK.md`** — §3 invariants
+  first, then §4's file→test table to predict which self-tests should fail.
+  An unexpectedly failing self-test (one not mapped to a file you changed)
+  is a stop signal: halt and report rather than fixing it. Update failing
+  self-tests at the same assertion strength — never delete, skip, or weaken
+  one. Land coordinated changes atomically: error text ↔ its test ↔ any doc
+  quoting it; schema ↔ validator; new framework file ↔ manifest entry ↔
+  ci.yml regex.
+- **Follow your declared mode's contract** (`docs/WORKING-MODES.md`). The pair-mode
   turn contract — smallest change per message, receipt, stop — is a working
   agreement, not a named check; the deterministic layer (scope-guard,
   verify) still runs underneath it.

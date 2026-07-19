@@ -2,7 +2,11 @@
 
 This guide is for the **human** briefing an agent to change the framework
 itself — the enforcement layer under `scripts/`, `.claude/hooks/`, `test/`,
-and the config files that wire them together. App-code work is covered by
+and the config files that wire them together. It binds any **agent** making
+framework changes too: `CLAUDE.md` rule 13 (the framework-test gate) and its
+Guidance bullet point here, so an agent touching framework paths is expected
+to have read this document — §3 invariants and §4's file→test table in
+particular. App-code work is covered by
 `CLAUDE.md` and `WORKING-MODES.md`; this document covers the layer those
 rules run on, where the usual safety net has a hole (see "The green-verify
 trap" below).
@@ -18,15 +22,16 @@ proves nothing about the framework — only `pnpm test:framework` does.**
 `framework-manifest.json` is the authoritative list — it names every
 framework-owned path (it includes itself). In practice:
 
-| Area                | Paths                                                                                                                       |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Enforcement scripts | `scripts/*.ts`                                                                                                              |
-| Runtime hooks       | `.claude/hooks/` (`scope-guard.ts`, `auto-format.ts`)                                                                       |
-| Skills              | `.claude/commands/`                                                                                                         |
-| Self-tests          | `test/**`                                                                                                                   |
-| Configs             | `eslint.config.js`, `vitest.config.ts`, `vitest.framework.config.ts`, `knip.json`, `lefthook.yml`, `module-map.schema.json` |
-| Docs                | `CLAUDE.md`, `WORKING-MODES.md`, `TESTING.md`, this file                                                                    |
-| CI                  | `.github/workflows/ci.yml` (not in the manifest — host-side)                                                                |
+| Area                | Paths                                                                                                                                                |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Enforcement scripts | `scripts/*.ts`                                                                                                                                       |
+| Runtime hooks       | `.claude/hooks/` (`scope-guard.ts`, `auto-format.ts`)                                                                                                |
+| Skills              | `.claude/commands/`                                                                                                                                  |
+| Agents              | `.claude/agents/` (agent definitions), `.claude/usage-guard/`                                                                                        |
+| Self-tests          | `test/**`                                                                                                                                            |
+| Configs             | `eslint.config.js`, `vitest.config.ts`, `vitest.framework.config.ts`, `knip.json`, `lefthook.yml`, `module-map.schema.json`, `.claude/settings.json` |
+| Docs                | `CLAUDE.md`, `WORKING-MODES.md`, `TESTING.md`, this file                                                                                             |
+| CI                  | `.github/workflows/ci.yml` (not in the manifest — host-side)                                                                                         |
 
 Two consequences:
 
@@ -71,8 +76,13 @@ breakage after it shipped.
 
 **Standing rule for you as director: no framework PR merges without a
 passing `pnpm test:framework` output pasted or linked in the PR body.**
-Weaker agents will skip this step unless the briefing demands it
-explicitly, because nothing in their local loop fails when they do.
+This is now automated: `pnpm pr` re-runs the suite when the diff touches
+framework paths (per `FRAMEWORK_PATH_RE` in `scripts/framework-paths.ts`)
+and appends its summary tail to the PR body under `## Framework
+self-tests` — a red suite aborts the PR. Locally, the lefthook
+`3_framework` pre-commit gate runs the suite for framework-path commits,
+so nothing in the agent's loop stays green when the step is skipped. The
+review checklist item (§7) remains as verification that the automation ran.
 
 ---
 
@@ -141,6 +151,8 @@ Test files map nearly 1:1 to the scripts they pin:
 | `scripts/baseline.ts`                 | `verify-baseline.test.ts`                                                                                 |
 | `scripts/debt.ts`                     | `debt-ledger.test.ts`                                                                                     |
 | `scripts/pr.ts`                       | `pr-preview.test.ts`                                                                                      |
+| `scripts/framework-paths.ts`          | `framework-gate.test.ts`, `pr-preview.test.ts`                                                            |
+| `lefthook.yml`                        | `framework-gate.test.ts`                                                                                  |
 | `scripts/pre-push-guard.ts`           | `pre-push-guard.test.ts`                                                                                  |
 | `scripts/sync-framework.ts`, manifest | `sync-framework.test.ts`                                                                                  |
 | `scripts/no-stale-refs.ts`            | `no-stale-refs.test.ts`                                                                                   |
@@ -207,7 +219,10 @@ Things that go wrong even when everyone means well:
 - **CI path-filter drift.** The regex in `ci.yml` decides which PRs run
   `test:framework`. A new framework config file not matched by it ships
   with its self-tests silently skipped until the post-merge run. When a PR
-  adds a framework file, check the regex.
+  adds a framework file, check the regex. The ci.yml grep and
+  `FRAMEWORK_PATH_RE` (`scripts/framework-paths.ts`) are a coordinated
+  pair pinned identical by a self-test (`framework-gate.test.ts`) —
+  changing one means changing both.
 - **Downstream clobbering.** Edits to `adapt`-marked files (`CLAUDE.md`
   especially) create reconciliation work in every downstream repo on the
   next sync. Batch doc edits; keep them generic.
@@ -217,7 +232,8 @@ Things that go wrong even when everyone means well:
   number in review anyway.
 - **Scope for framework work.** `pnpm scope` resolves modules, and
   framework files aren't a module — agents typically work framework tasks
-  with path-based scope (`pnpm scope --add scripts/ratchet.ts` style) or
+  with path-based scope (`pnpm scope --add scripts/ratchet.ts` style, or a
+  directory like `pnpm scope --add scripts/`) or
   unscoped-with-nudge. Watch `pnpm edit-log` for repeated blocks: repeated
   blocks mean the scoping was wrong for the task, not that the agent
   should get creative.
@@ -291,6 +307,15 @@ or `PREFERENCES.md`), never in these files. (`SUPERVISOR.md` carries an
 `adapt` note only so its doc/tool routing can be re-pointed at the target's
 skills after a sync — that reconciliation, not free-form customization.)
 
+**Path migration (2026-07):** these four reference docs moved from the repo
+root into `docs/`. Syncing across this change creates the `docs/` copies but
+leaves a target's OLD root-level copies behind (a sync never deletes target
+files) — after the sync, delete them in the target: `git rm FRAMEWORK.md
+SUPERVISOR.md TESTING.md WORKING-MODES.md`. Until a target syncs, its own
+`framework-sync-check` job fails with `manifest path missing in template`
+for the moved paths — that is the expected "template moved ahead" alarm,
+not local drift.
+
 Follow these steps in order:
 
 1. **Dry-run from the template.** In the TEMPLATE repo, on a clean,
@@ -319,6 +344,9 @@ Follow these steps in order:
      of the template's new base.
    - **`knip.json`** — MERGE: keep the target's extra entry/project globs
      and `ignoreDependencies` AND take the template's additions.
+   - **`.claude/settings.json`** — MERGE: take the template's hook wiring
+     (PreToolUse/PostToolUse registrations) AND keep the target's own
+     additions (permissions allowlists, env, extra settings).
    - Any other file in the `NEEDS PER-PROJECT ADAPTATION:` list — reconcile
      per its `adapt` note.
 

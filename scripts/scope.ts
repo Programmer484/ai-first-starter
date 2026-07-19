@@ -13,7 +13,7 @@
 //   pnpm scope _example                 # allow edits within the _example module
 //   pnpm scope .task/spec.md            # scan a spec file for module names
 //   pnpm scope src/modules/foo/index.ts # literal path (fallback)
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { appendRun } from './edit-log.ts';
@@ -89,6 +89,13 @@ for (const arg of args) {
   const mod = byName.get(arg);
   if (mod) {
     addModule(mod);
+    continue;
+  }
+  if (existsSync(arg) && statSync(arg).isDirectory()) {
+    // A directory: allow everything under it. `.` (or a trailing-slash form
+    // of it) normalizes to `**`, so the catch-all refusal below still bites.
+    const dir = arg.replace(/\/+$/, '');
+    allow.add(dir === '.' ? '**' : `${dir}/**`);
     continue;
   }
   if (existsSync(arg)) {

@@ -33,10 +33,14 @@ const modules = readModuleMap(mapPath).modules as Module[];
 const byName = new Map(modules.map((m) => [m.name, m]));
 
 const rawArgs = process.argv.slice(2);
-const addMode = rawArgs.includes('--add');
-const args = rawArgs.filter((a) => !a.startsWith('--'));
+// `add` subcommand form: `npm run scope --add x` silently drops `--add`
+// (npm parses it as its own config flag), turning a widen into a replace.
+// A positional subcommand survives every runner's flag parser.
+const subcommand = rawArgs[0] === 'add';
+const addMode = subcommand || rawArgs.includes('--add');
+const args = (subcommand ? rawArgs.slice(1) : rawArgs).filter((a) => !a.startsWith('--'));
 if (args.length === 0) {
-  console.error('Usage: scope <module-name | spec-file | path> ... [--add]');
+  console.error('Usage: scope [add] <module-name | spec-file | path> ... [--add]');
   process.exit(2);
 }
 

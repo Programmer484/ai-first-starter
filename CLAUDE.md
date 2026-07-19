@@ -55,7 +55,9 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
 
 5. **Scope every task.** Run `pnpm scope <module-or-spec>` before editing;
    it writes `.task/allowed-files.json`. Widen scope with
-   `pnpm scope --add <module|path>` — a plain re-run REPLACES the scope, and
+   `pnpm scope add <module|path>` (`--add` also works under pnpm, but `npm
+run` swallows `--add`, so prefer the subcommand) — a plain re-run
+   REPLACES the scope, and
    editing the JSON by hand is always blocked. Bare catch-all globs (`**`,
    `src/**`, …) are refused.
    — _Enforced by:_ `scope-guard` (PreToolUse hook). Deterministic for

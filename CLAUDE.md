@@ -158,6 +158,17 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
     refspec pushes (`git push origin HEAD:main` from another branch) the
     local hook can't see.
 
+13. **Hook commands must be cwd-robust.** Hook commands in
+    `.claude/settings.json` that reference `.claude/hooks/` scripts must
+    resolve the path via `$CLAUDE_PROJECT_DIR` (quoted, e.g.
+    `node "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/scope-guard.ts"`) — never
+    a bare relative path. Hooks run with the session's cwd, so a relative
+    path breaks when the session isn't rooted at the repo top, and a hook
+    that errors does NOT block the tool call — the guard silently stops
+    enforcing.
+    — _Enforced by:_ `hook-command-path` probe (`pnpm test:framework`) —
+    static path-form check plus a functional spawn-from-subdirectory check.
+
 ## Guidance (no deterministic check — judgement calls)
 
 - **Prefer reuse and the smallest change.** Check for an existing helper

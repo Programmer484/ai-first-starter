@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/scope-guard.ts"
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/scope-guard.ts\""
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/auto-format.ts"
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/auto-format.ts\""
           }
         ]
       }

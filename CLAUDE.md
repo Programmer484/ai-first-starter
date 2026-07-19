@@ -55,8 +55,10 @@ module-map.json`; the field's shape is validated by `module-sync` (verify
 
 5. **Scope every task.** Run `pnpm scope <module-or-spec>` before editing;
    it writes `.task/allowed-files.json`. Widen scope with
-   `pnpm scope --add <module|path>` (a path may be a file or a directory — a
-   directory expands to `<dir>/**`) — a plain re-run REPLACES the scope, and
+   `pnpm scope add <module|path>` (`--add` also works under pnpm, but `npm
+run` swallows `--add`, so prefer the subcommand; a path may be a file or
+   a directory — a directory expands to `<dir>/**`) — a plain re-run
+   REPLACES the scope, and
    editing the JSON by hand is always blocked. Bare catch-all globs (`**`,
    `src/**`, …) are refused.
    — _Enforced by:_ `scope-guard` (PreToolUse hook). Deterministic for
@@ -172,6 +174,17 @@ polish|shell`). Never lower the floor or weaken a gate to make a change
     suite aborts the PR; `--no-verify` skips the gate but is logged to
     `edit-log.jsonl`). `FRAMEWORK_PATH_RE` and ci.yml's path-filter regex
     are a coordinated pair pinned identical by `test/framework-gate.test.ts`.
+
+14. **Hook commands must be cwd-robust.** Hook commands in
+    `.claude/settings.json` that reference `.claude/hooks/` scripts must
+    resolve the path via `$CLAUDE_PROJECT_DIR` (quoted, e.g.
+    `node "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/scope-guard.ts"`) — never
+    a bare relative path. Hooks run with the session's cwd, so a relative
+    path breaks when the session isn't rooted at the repo top, and a hook
+    that errors does NOT block the tool call — the guard silently stops
+    enforcing.
+    — _Enforced by:_ `hook-command-path` probe (`pnpm test:framework`) —
+    static path-form check plus a functional spawn-from-subdirectory check.
 
 ## Guidance (no deterministic check — judgement calls)
 
